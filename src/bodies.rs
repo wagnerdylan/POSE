@@ -25,7 +25,7 @@ pub trait Simobj {
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct Spacecraft{
-    #[serde(skip_serializing)]
+    #[serde(skip_deserializing)]
     id: u32,
     x_dis: f64,
     y_dis: f64,
@@ -48,7 +48,7 @@ impl Simobj for Spacecraft {
 /// Struct for holding attributes relating to debris
 #[derive(Serialize, Deserialize, Clone)]
 pub struct Debris{
-    #[serde(skip_serializing)]
+    #[serde(skip_deserializing)]
     id: u32,
     x_dis: f64,
     y_dis: f64,
@@ -388,7 +388,7 @@ impl KeplerModel for Earth {
         let y = -distance_in_au * sin_deg!(ls);
 
         // the Earth's center is always on the plane of the ecliptic (z=0), by definition!
-        let mut coords = CartesianCoords { xh: x, yh: y, zh: 0f32, is_meters: false, heliocentric: true };
+        let coords = CartesianCoords { xh: x, yh: y, zh: 0f32, is_meters: false, heliocentric: true };
 
         coords
     }

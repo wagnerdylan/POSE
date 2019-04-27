@@ -9,16 +9,16 @@ extern crate clap;
 
 mod innout;
 mod bodies;
+mod sim_cpu;
 
 mod cli{
-
 
     ///Checks if value passed in to program argument is numeric. Returns a Result
     ///
     ///# Argument
     ///* 'strng' - The value passed by the user
     fn numeric_validator(strng: String) -> Result<(), String>{
-        if strng.parse::<f64>().is_ok(){
+        if strng.parse::<f32>().is_ok(){
             Ok(())
         } else {
             Err(String::from("Input is non-numeric"))
@@ -44,11 +44,6 @@ mod cli{
                     .long("out")
                     .value_name("FILE_NAME")
                     .takes_value(true),
-                clap::Arg::with_name("timei")
-                    .help("Initial time for simulation start must, be in iso time format.")
-                    .long("timei")
-                    .value_name("INITAL_TIME")
-                    .takes_value(true),
                 clap::Arg::with_name("step")
                     .help("Simulation time step interval in seconds")
                     .short("s")
@@ -67,7 +62,10 @@ mod cli{
 fn main() {
     let matches = cli::check_cli();
     let inpt_file = matches.value_of("INPUT").unwrap(); // Will always have INPUT
+    let step = matches.value_of("step").unwrap().parse::<f32>().unwrap(); // Always have default
+
     let (sim_bodies, day) = innout::parse_inpt(inpt_file);
+    let solar_bodies = bodies::solar_system_objs(day);
 
-
+    sim_cpu::simulate(sim_bodies, solar_bodies, day, step);
 }
