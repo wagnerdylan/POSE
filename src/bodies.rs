@@ -11,7 +11,8 @@ pub type SimobjT = Box<dyn Simobj>;
 pub type PlanetBody = Box<dyn KeplerModel>;
 
 #[derive(Serialize, Deserialize, Clone)]
-pub struct Objects {
+pub struct InitData {
+    pub date: String,
     pub debris: Vec<Debris>,
     pub spacecraft: Vec<Spacecraft>
 }
@@ -24,7 +25,7 @@ pub trait Simobj {
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct Spacecraft{
-    #[serde(skip)]
+    #[serde(skip_serializing)]
     id: u32,
     x_dis: f64,
     y_dis: f64,
@@ -47,7 +48,7 @@ impl Simobj for Spacecraft {
 /// Struct for holding attributes relating to debris
 #[derive(Serialize, Deserialize, Clone)]
 pub struct Debris{
-    #[serde(skip)]
+    #[serde(skip_serializing)]
     id: u32,
     x_dis: f64,
     y_dis: f64,
@@ -464,9 +465,6 @@ fn make_sun() -> Sun {
 ///
 fn make_earth(day: f32) -> Earth {
 
-    // Completely not allowed, will cause wildly incorrect planetary calculations.
-    if day < 0f32 {panic!("Provided day value is below 0.")}
-
     let solar_trait = Solarobj::Earth{attr: SolarAttr{radius: 6.3781e6, mass: 5.9722e24}};
 
     let mut earth_body = Earth{solartype: solar_trait,
@@ -487,9 +485,6 @@ fn make_earth(day: f32) -> Earth {
 ///     A newly created moon PlanetPS object.
 ///
 fn make_moon(day: f32) -> PlanetPS {
-
-    // Completely not allowed, will cause wildly incorrect planetary calculations.
-    if day < 0f32 {panic!("Provided day value is below 0.")}
 
     let solar_trait = Solarobj::Moon {attr: SolarAttr{radius: 1738.1, mass: 0.07346e24}};
 

@@ -67,42 +67,7 @@ mod cli{
 fn main() {
     let matches = cli::check_cli();
     let inpt_file = matches.value_of("INPUT").unwrap(); // Will always have INPUT
-    let sim_bodies = innout::parse_inpt(inpt_file);
+    let (sim_bodies, day) = innout::parse_inpt(inpt_file);
 
-    // For testing --------------
-    let day: f32 = 139f32; // Sat Jan 01 2000 01:01:01 GMT-0500 (EST)
-
-    let mut planet_bodies = bodies::solar_system_objs(day);
-
-    for e in sim_bodies.iter() {
-        println!("{} with id {}", e.type_of(), e.get_id());
-    }
-
-    for i in 1..366 {
-        bodies::update_solar_system_objs(&mut planet_bodies, i as f32);
-        planet_bodies.get_mut(0).unwrap().mut_coords().to_meters();
-        planet_bodies.get_mut(1).unwrap().mut_coords().to_meters();
-        planet_bodies.get_mut(2).unwrap().mut_coords().to_meters();
-        print!("Sun,{0},{1},{2},{3}\n",
-               i,
-               planet_bodies.get(0).unwrap().get_coords().xh,
-               planet_bodies.get(0).unwrap().get_coords().yh,
-               planet_bodies.get(0).unwrap().get_coords().zh,
-        );
-        print!("Earth,{0},{1},{2},{3}\n",
-               i,
-               planet_bodies.get(1).unwrap().get_coords().xh,
-               planet_bodies.get(1).unwrap().get_coords().yh,
-               planet_bodies.get(1).unwrap().get_coords().zh,
-        );
-        print!("Moon,{0},{1},{2},{3}\n",
-               i,
-               planet_bodies.get(2).unwrap().get_coords().xh,
-               planet_bodies.get(2).unwrap().get_coords().yh,
-               planet_bodies.get(2).unwrap().get_coords().zh,
-        ); // REMOVE this
-    }
-
-    // ---------------------------
 
 }
