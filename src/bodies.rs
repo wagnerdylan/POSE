@@ -1,38 +1,39 @@
 use serde::{Deserialize, Serialize};
 
-
 const METERS_PER_ASTRONOMICAL_UNIT: f32 = 1.4959787e+11;
 const METERS_PER_EARTH_EQUATORIAL_RADIUS: f32 = 6378140.0;
 const EARTH_RADII_PER_ASTRONOMICAL_UNIT: f32 =
-    METERS_PER_ASTRONOMICAL_UNIT / METERS_PER_EARTH_EQUATORIAL_RADIUS;      // 23454.78
-
+    METERS_PER_ASTRONOMICAL_UNIT / METERS_PER_EARTH_EQUATORIAL_RADIUS; // 23454.78
+const AU_METER: f32 = 1.496e+11;
 
 pub type SimobjT = Box<dyn Simobj>;
 pub type PlanetBody = Box<dyn KeplerModel>;
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize)]
 pub struct InitData {
-    pub date: String,
-    pub debris: Vec<Debris>,
-    pub spacecraft: Vec<Spacecraft>
+    pub date: String, // Datetime in ISO 8601 format
+    pub debris: Vec<Debris>, // Debris objects
+    pub spacecraft: Vec<Spacecraft> // Spacecraft objects
 }
 
 pub trait Simobj {
     fn type_of(&self) -> String;
     fn get_id(&self) -> u32;
     fn id_mut(&mut self) -> &mut u32;
+    fn get_coords(&self) -> (f32, f32, f32);
+    fn set_coords(&mut self, x: f32, y: f32, z:f32);
 }
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize)]
 pub struct Spacecraft{
     #[serde(skip_deserializing)]
     id: u32,
-    x_dis: f64,
-    y_dis: f64,
-    z_dis: f64,
-    x_vel: f64,
-    y_vel: f64,
-    z_vel: f64
+    x_dis: f32,
+    y_dis: f32,
+    z_dis: f32,
+    x_vel: f32,
+    y_vel: f32,
+    z_vel: f32
     // Add more
 }
 
@@ -43,19 +44,29 @@ impl Simobj for Spacecraft {
     fn get_id(&self) -> u32 { self.id }
 
     fn id_mut(&mut self) -> &mut u32 {&mut self.id}
+
+    fn get_coords(&self) -> (f32, f32, f32){
+        (self.x_dis, self.y_dis, self.z_dis)
+    }
+
+    fn set_coords(&mut self, x: f32, y: f32, z:f32){
+        self.x_dis = x;
+        self.y_dis = y;
+        self.z_dis = z;
+    }
 }
 
 /// Struct for holding attributes relating to debris
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize)]
 pub struct Debris{
     #[serde(skip_deserializing)]
     id: u32,
-    x_dis: f64,
-    y_dis: f64,
-    z_dis: f64,
-    x_vel: f64,
-    y_vel: f64,
-    z_vel: f64
+    x_dis: f32,
+    y_dis: f32,
+    z_dis: f32,
+    x_vel: f32,
+    y_vel: f32,
+    z_vel: f32
     // Add more
 }
 
@@ -67,6 +78,16 @@ impl Simobj for Debris {
     fn get_id(&self) -> u32 { self.id }
 
     fn id_mut(&mut self) -> &mut u32 {&mut self.id}
+
+    fn get_coords(&self) -> (f32, f32, f32){
+        (self.x_dis, self.y_dis, self.z_dis)
+    }
+
+    fn set_coords(&mut self, x: f32, y: f32, z:f32){
+        self.x_dis = x;
+        self.y_dis = y;
+        self.z_dis = z;
+    }
 }
 
 #[derive(Debug)]
@@ -112,34 +133,18 @@ pub struct Sun {
 
 #[derive(Debug)]
 pub struct CartesianCoords {
-    is_meters: bool,
     heliocentric: bool, // False if geocentric
-    pub xh: f32, // X location in meters
-    pub yh: f32, // Y location in meters
-    pub zh: f32  // Z location in meters
+    xh: f32, // X location in meters
+    yh: f32, // Y location in meters
+    zh: f32  // Z location in meters
 }
 
 impl CartesianCoords {
-    
-    /// Converts the cartesian coords from Au to meters.
-    pub fn to_meters(&mut self){
-        if !self.is_meters {
-            self.is_meters = true;
-            self.xh *= 149600000000f32;
-            self.zh *= 149600000000f32;
-            self.yh *= 149600000000f32;
-        }
+
+    pub fn is_heliocentric(&self) -> bool{
+        self.heliocentric
     }
 
-    ///Converts the cartesian coords from meters to AU.
-    pub fn to_au(&mut self){
-        if self.is_meters {
-            self.is_meters = false;
-            self.xh /= 149600000000f32;
-            self.zh /= 149600000000f32;
-            self.yh /= 149600000000f32;
-        }
-    }
 }
 
 /// Provides utilities for calculating planetary bodies with a Kepler model
@@ -253,7 +258,7 @@ mod kepler_utilities {
         let yp = r * sinlon * coslat;
         let zp = r * sinlat;
 
-        CartesianCoords{xh: xp, yh: yp, zh: zp, is_meters: false, heliocentric: false}
+        CartesianCoords{xh: xp, yh: yp, zh: zp, heliocentric: false}
     }
 
 }
@@ -262,15 +267,21 @@ pub trait KeplerModel{
 
     fn ecliptic_cartesian_coords(&self, day: f32) -> CartesianCoords;
 
-    fn perturb(&self, xh: f32, yh: f32, zh: f32, day: f32) -> CartesianCoords {
-        CartesianCoords{xh, yh, zh, is_meters: false, heliocentric: true}
+    fn perturb(&self, xh: f32, yh: f32, zh: f32, _day: f32) -> CartesianCoords {
+        CartesianCoords{xh, yh, zh, heliocentric: true}
     }
 
-    fn mean_anomaly(&self, day: f32) -> f32;
+    fn mean_anomaly(&self, _day: f32) -> f32 {
+        0f32
+    }
 
-    fn node_longitude(&self, day: f32) -> f32;
+    fn node_longitude(&self, _day: f32) -> f32 {
+        0f32
+    }
 
-    fn perihelion(&self, day: f32) -> f32;
+    fn perihelion(&self, _day: f32) -> f32 {
+        0f32
+    }
 
     fn get_coords(&self) -> &CartesianCoords;
 
@@ -304,11 +315,16 @@ impl KeplerModel for PlanetPS{
         let sin_vw = sin_deg!(v + w);
     
         // Now we are ready to calculate (unperturbed) ecliptic cartesian heliocentric coordinates.
-        let xh = r * (cos_n * cos_vw - sin_n * sin_vw * cosi);
-        let yh = r * (sin_n * cos_vw + cos_n * sin_vw * cosi);
-        let zh = r * sin_vw * sini;
+        let mut xh = r * (cos_n * cos_vw - sin_n * sin_vw * cosi);
+        let mut yh = r * (sin_n * cos_vw + cos_n * sin_vw * cosi);
+        let mut zh = r * sin_vw * sini;
+
+        xh *= AU_METER;
+        yh *= AU_METER;
+        zh *= AU_METER;
 
         let mut coords = self.perturb(xh, yh, zh, day);
+
         coords
     }
     
@@ -326,8 +342,8 @@ impl KeplerModel for PlanetPS{
     /// 
     fn perturb(&self, xh: f32, yh: f32, zh: f32, day: f32) -> CartesianCoords {
         match &self.solartype {
-            Solarobj::Moon{attr} => kepler_utilities::lunar_pertub(self, xh, yh, zh, day),
-            _ => CartesianCoords{xh, yh, zh, is_meters: false, heliocentric: true}
+            Solarobj::Moon{attr: _ } => kepler_utilities::lunar_pertub(self, xh, yh, zh, day),
+            _ => CartesianCoords{xh, yh, zh, heliocentric: true}
         }
     }
 
@@ -384,25 +400,16 @@ impl KeplerModel for Earth {
         let e = 0.016708617 - t * (0.000042037 + (0.0000001236 * t));
         // distance from Sun to Earth in astronomical units (AU)
         let distance_in_au = (1.000001018 * (1f32 - e * e)) / (1f32 + e * cos_deg!(m_0 + c));
-        let x = -distance_in_au * cos_deg!(ls);
-        let y = -distance_in_au * sin_deg!(ls);
+        let mut x = -distance_in_au * cos_deg!(ls);
+        let mut y = -distance_in_au * sin_deg!(ls);
+
+        x *= AU_METER;
+        y *= AU_METER;
 
         // the Earth's center is always on the plane of the ecliptic (z=0), by definition!
-        let coords = CartesianCoords { xh: x, yh: y, zh: 0f32, is_meters: false, heliocentric: true };
+        let mut coords = CartesianCoords { xh: x, yh: y, zh: 0f32, heliocentric: true };
 
         coords
-    }
-
-    fn mean_anomaly(&self, day: f32) -> f32 {
-        0f32
-    }
-
-    fn node_longitude(&self, day: f32) -> f32 {
-        0f32
-    }
-
-    fn perihelion(&self, day: f32) -> f32 {
-        0f32
     }
 
     fn get_coords(&self) -> &CartesianCoords {
@@ -417,20 +424,8 @@ impl KeplerModel for Earth {
 
 impl KeplerModel for Sun {
 
-    fn ecliptic_cartesian_coords(&self, day:f32) -> CartesianCoords {
-        CartesianCoords{xh: 0f32, yh: 0f32, zh: 0f32, is_meters: false, heliocentric: true}
-    }
-
-    fn mean_anomaly(&self, day: f32) -> f32 {
-        0f32
-    }
-
-    fn node_longitude(&self, day: f32) -> f32 {
-        0f32
-    }
-
-    fn perihelion(&self, day: f32) -> f32 {
-        0f32
+    fn ecliptic_cartesian_coords(&self, _day:f32) -> CartesianCoords {
+        CartesianCoords { xh: 0f32, yh: 0f32, zh: 0f32, heliocentric: true }
     }
 
     fn get_coords(&self) -> &CartesianCoords {
@@ -450,7 +445,10 @@ fn make_sun() -> Sun {
 
     let solar_trait = Solarobj::Sun{attr: SolarAttr{radius: 6.95700e8, mass: 1.9891e30}};
 
-    let sun_body = Sun{solartype: solar_trait, coords: CartesianCoords{xh: 0f32, yh: 0f32, zh: 0f32, is_meters: false, heliocentric: true}};
+    let sun_body = Sun{
+        solartype: solar_trait,
+        coords: CartesianCoords{xh: 0f32, yh: 0f32, zh: 0f32, heliocentric: true}
+    };
 
     sun_body
 }
@@ -469,7 +467,7 @@ fn make_earth(day: f32) -> Earth {
 
     let mut earth_body = Earth{solartype: solar_trait,
                            coords: CartesianCoords{xh: 0f32, yh: 0f32, zh: 0f32, 
-                                                   is_meters: false, heliocentric: true}};
+                                                   heliocentric: true}};
 
     earth_body.coords = earth_body.ecliptic_cartesian_coords(day);
 
@@ -490,7 +488,7 @@ fn make_moon(day: f32) -> PlanetPS {
 
     let mut moon_body = PlanetPS{
         solartype: solar_trait,
-        coords: CartesianCoords{xh: 0f32, yh: 0f32, zh: 0f32, is_meters: false, heliocentric: false},
+        coords: CartesianCoords{xh: 0f32, yh: 0f32, zh: 0f32, heliocentric: false},
         n0: 125.1228,   nc: -0.0529538083,
         i0: 5.1454,     ic: 0.0,
         w0: 318.0634,   wc: 0.1643573223,

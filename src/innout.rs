@@ -28,20 +28,20 @@ pub fn parse_inpt(file: &str) -> (Vec<bodies::SimobjT>, f32){
     //add objects to sim_bodies
     for elem in ser_objs.debris {
         //println!("id {}", elem.type_of());
-        let p = Box::new(elem.clone());
+        let p = Box::new(elem);
         sim_bodies.push(p);
     }
 
     for elem in ser_objs.spacecraft {
         //println!("id {}", elem.type_of());
-        let p = Box::new(elem.clone());
+        let p = Box::new(elem);
         sim_bodies.push(p);
     }
 
     assign_id(&mut sim_bodies);
 
     let datetime = ser_objs.date;
-    let dt_delta = datetime_to_days(datetime);
+    let dt_delta = datetime_to_days(&datetime);
 
     (sim_bodies, dt_delta)
 }
@@ -54,8 +54,7 @@ pub fn parse_inpt(file: &str) -> (Vec<bodies::SimobjT>, f32){
 /// ### Return
 ///     The delta from 0/Jan/2000 00:00 UTC in days.
 ///
-fn datetime_to_days(datetime: String) -> f32 {
-
+fn datetime_to_days(datetime: &str) -> f32 {
     let origin_dt = chrono::Utc.ymd(2000,1,1).and_hms(0,0,0);
     let datetime_obj= datetime.parse::<DateTime<chrono::Utc>>().expect(
         "Input file contains invalid datetime format, expected ISO 8601 format.");
