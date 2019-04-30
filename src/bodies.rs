@@ -271,18 +271,6 @@ pub trait KeplerModel{
         CartesianCoords{xh, yh, zh, heliocentric: true}
     }
 
-    fn mean_anomaly(&self, _day: f32) -> f32 {
-        0f32
-    }
-
-    fn node_longitude(&self, _day: f32) -> f32 {
-        0f32
-    }
-
-    fn perihelion(&self, _day: f32) -> f32 {
-        0f32
-    }
-
     fn get_coords(&self) -> &CartesianCoords;
 
     fn mut_coords(&mut self) -> &mut CartesianCoords;
@@ -347,6 +335,18 @@ impl KeplerModel for PlanetPS{
         }
     }
 
+    fn get_coords(&self) -> &CartesianCoords {
+        &self.coords
+    }
+
+    fn mut_coords(&mut self) -> &mut CartesianCoords {
+        &mut self.coords
+    }
+
+}
+
+impl PlanetPS {
+
     fn mean_anomaly(&self, day: f32) -> f32 {
         self.m0 + (day * self.mc)
     }
@@ -358,15 +358,6 @@ impl KeplerModel for PlanetPS{
     fn perihelion(&self, day: f32) -> f32 {
         self.w0 + (day * self.wc)
     }
-
-    fn get_coords(&self) -> &CartesianCoords {
-        &self.coords
-    }
-
-    fn mut_coords(&mut self) -> &mut CartesianCoords {
-        &mut self.coords
-    }
-
 }
 
 impl KeplerModel for Earth {
