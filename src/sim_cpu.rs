@@ -17,7 +17,9 @@ mod cowell_perturb {
 /// using Cowell's method.
 pub fn simulate(
     sim_bodies: Vec<bodies::SimobjT>,
-    solar_bodies: Vec<bodies::PlanetBody>,
+    env: bodies::Environment,
     day: f32,
     step: f32,
-    ){}
+    ){
+
+}

@@ -16,6 +16,11 @@ pub struct InitData {
     pub spacecraft: Vec<Spacecraft> // Spacecraft objects
 }
 
+pub struct Environment {
+    pub centric: PlanetBody,
+    pub bodies: Vec<PlanetBody>
+}
+
 pub trait Simobj {
     fn type_of(&self) -> String;
     fn get_id(&self) -> u32;
@@ -307,6 +312,7 @@ impl KeplerModel for PlanetPS{
         let mut yh = r * (sin_n * cos_vw + cos_n * sin_vw * cosi);
         let mut zh = r * sin_vw * sini;
 
+        // Convert AU to Meters
         xh *= AU_METER;
         yh *= AU_METER;
         zh *= AU_METER;
@@ -394,6 +400,7 @@ impl KeplerModel for Earth {
         let mut x = -distance_in_au * cos_deg!(ls);
         let mut y = -distance_in_au * sin_deg!(ls);
 
+        // Convert AU to Meters
         x *= AU_METER;
         y *= AU_METER;
 
@@ -507,14 +514,15 @@ fn make_moon(day: f32) -> PlanetPS {
 /// ### Return
 ///      A vector with the elements defined above.
 ///
-pub fn solar_system_objs(day: f32) -> Vec<PlanetBody> {
+pub fn solar_system_objs(day: f32) -> Environment {
     let mut solar_bodies: Vec<PlanetBody> = Vec::new();
+    let earth = Box::new(make_earth(day));
 
     solar_bodies.push(Box::new(make_sun()));
-    solar_bodies.push(Box::new(make_earth(day)));
     solar_bodies.push(Box::new(make_moon(day)));
 
-    solar_bodies
+
+    Environment{centric: earth, bodies: solar_bodies}
 }
 
 /// Updates the coords for all PlanetBody objects in the provided vector.
@@ -522,9 +530,12 @@ pub fn solar_system_objs(day: f32) -> Vec<PlanetBody> {
 /// ### Argument
 /// * 'ss_objs' - PlanetBody objects to be updated.
 ///
-pub fn update_solar_system_objs(ss_objs: &mut Vec<PlanetBody>, day: f32){
+pub fn update_solar_system_objs(env: &mut Environment, day: f32){
 
-    for obj in ss_objs {
-        *obj.mut_coords() = obj.ecliptic_cartesian_coords(day);
+    *env.centric.mut_coords() = env.centric.ecliptic_cartesian_coords(day);
+
+    for i in 0..env.bodies.len() {
+        *env.bodies.get_mut(i).unwrap().mut_coords() =
+            env.bodies.get(i).unwrap().ecliptic_cartesian_coords(day);
     }
 }

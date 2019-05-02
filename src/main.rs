@@ -65,7 +65,7 @@ fn main() {
     let step = matches.value_of("step").unwrap().parse::<f32>().unwrap(); // Always have default
 
     let (sim_bodies, day) = innout::parse_inpt(inpt_file);
-    let solar_bodies = bodies::solar_system_objs(day);
+    let env = bodies::solar_system_objs(day);
 
-    sim_cpu::simulate(sim_bodies, solar_bodies, day, step);
+    sim_cpu::simulate(sim_bodies, env, day, step);
 }
