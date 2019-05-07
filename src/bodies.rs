@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use std::ptr;
 
 const METERS_PER_ASTRONOMICAL_UNIT: f32 = 1.4959787e+11;
 const METERS_PER_EARTH_EQUATORIAL_RADIUS: f32 = 6378140.0;
@@ -40,6 +41,38 @@ pub struct Spacecraft{
     y_vel: f32,
     z_vel: f32
     // Add more
+}
+
+impl Environment {
+
+    /// Calculates the distance for each vector component from one planet to another body.
+    ///
+    /// ### Arguments:
+    /// * 'planet' - The planet body.
+    /// * 'body' - The simulation body.
+    ///
+    /// ### Return:
+    ///     Each of the vector components x,y,z
+    pub fn distance_xyz(&self, planet: &PlanetBody, body: &SimobjT) -> (f32, f32, f32) {
+
+        let (bx, by, bz) = body.get_coords();
+
+        // If centric was passed in as body
+        if ptr::eq(self.centric.as_ref(), planet.as_ref()) {
+            print!("Same");
+            return (bx, by, bz);
+        }
+
+        if planet.get_coords().heliocentric {
+            ((self.centric.get_coords().xh + bx - planet.get_coords().xh).abs(),
+             (self.centric.get_coords().yh + by - planet.get_coords().yh).abs(),
+             (self.centric.get_coords().zh + bz - planet.get_coords().zh).abs())
+        } else {
+            ((planet.get_coords().xh - bx).abs(),
+             (planet.get_coords().yh - by).abs(),
+             (planet.get_coords().zh - bz).abs())
+        }
+    }
 }
 
 impl Simobj for Spacecraft {
@@ -139,9 +172,9 @@ pub struct Sun {
 #[derive(Debug)]
 pub struct CartesianCoords {
     heliocentric: bool, // False if geocentric
-    xh: f32, // X location in meters
-    yh: f32, // Y location in meters
-    zh: f32  // Z location in meters
+    pub xh: f32, // X location in meters
+    pub yh: f32, // Y location in meters
+    pub zh: f32  // Z location in meters
 }
 
 impl CartesianCoords {
@@ -534,8 +567,7 @@ pub fn update_solar_system_objs(env: &mut Environment, day: f32){
 
     *env.centric.mut_coords() = env.centric.ecliptic_cartesian_coords(day);
 
-    for i in 0..env.bodies.len() {
-        *env.bodies.get_mut(i).unwrap().mut_coords() =
-            env.bodies.get(i).unwrap().ecliptic_cartesian_coords(day);
+    for planet in env.bodies.iter_mut(){
+        *planet.mut_coords() = planet.ecliptic_cartesian_coords(day);
     }
 }
