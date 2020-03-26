@@ -8,3 +8,4 @@
 .vscode
 .png
 .csv
+/Cargo.lock
