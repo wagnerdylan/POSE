@@ -1,17 +1,17 @@
 use super::bodies;
 
+use chrono::offset::TimeZone;
+use chrono::DateTime;
+use clap::ArgMatches;
 use std::error::Error;
 use std::fs::File;
 use std::io::BufReader;
 use std::path::Path;
-use chrono::DateTime;
-use chrono::offset::TimeZone;
-use clap::ArgMatches;
 
 pub struct SimulationParameters {
     pub input_bodies_json: String,
     pub output_dir: String,
-    pub sim_time_step: f32
+    pub sim_time_step: f32,
 }
 
 pub fn gather_program_arguments(matches: ArgMatches) -> SimulationParameters {
@@ -19,12 +19,16 @@ pub fn gather_program_arguments(matches: ArgMatches) -> SimulationParameters {
     let mut sim_params: SimulationParameters = SimulationParameters {
         input_bodies_json: "".to_string(),
         output_dir: "".to_string(),
-        sim_time_step: 0.1
+        sim_time_step: 0.1,
     };
 
     sim_params.input_bodies_json = matches.value_of("INPUT").unwrap().to_string();
     if matches.is_present("sim_time_step") {
-        sim_params.sim_time_step = matches.value_of("sim_time_step").unwrap().parse::<f32>().unwrap();
+        sim_params.sim_time_step = matches
+            .value_of("sim_time_step")
+            .unwrap()
+            .parse::<f32>()
+            .unwrap();
     }
 
     sim_params
@@ -39,7 +43,7 @@ pub fn gather_program_arguments(matches: ArgMatches) -> SimulationParameters {
 ///      A vector of bodies from the input file.
 ///      The datetime delta from year 2000-01-01
 ///
-pub fn parse_inpt(file: &str) -> (Vec<bodies::SimobjT>, f32){
+pub fn parse_inpt(file: &str) -> (Vec<bodies::SimobjT>, f32) {
     let mut sim_bodies: Vec<bodies::SimobjT> = Vec::new();
 
     let ser_objs = read_object_from_file(file).unwrap();
@@ -74,12 +78,12 @@ pub fn parse_inpt(file: &str) -> (Vec<bodies::SimobjT>, f32){
 ///     The delta from 0/Jan/2000 00:00 UTC in days.
 ///
 fn datetime_to_days(datetime: &str) -> f32 {
-    let origin_dt = chrono::Utc.ymd(2000,1,1).and_hms(0,0,0);
-    let datetime_obj= datetime.parse::<DateTime<chrono::Utc>>().expect(
-        "Input file contains invalid datetime format, expected ISO 8601 format.");
+    let origin_dt = chrono::Utc.ymd(2000, 1, 1).and_hms(0, 0, 0);
+    let datetime_obj = datetime
+        .parse::<DateTime<chrono::Utc>>()
+        .expect("Input file contains invalid datetime format, expected ISO 8601 format.");
 
-    1.15741e-5f32 * (datetime_obj- origin_dt).num_seconds() as f32
-
+    1.15741e-5f32 * (datetime_obj - origin_dt).num_seconds() as f32
 }
 
 /// Function responsible for handling opening the file and connecting the

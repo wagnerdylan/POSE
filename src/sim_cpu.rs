@@ -1,6 +1,6 @@
 use crate::bodies;
 
-struct PerturbationDelta{
+struct PerturbationDelta {
     acceleration_x_mpss: f32,
     acceleration_y_mpss: f32,
     acceleration_z_mpss: f32,
@@ -12,7 +12,7 @@ struct PerturbationDelta{
     distance_z_m: f32,
 }
 
-impl Default for PerturbationDelta{
+impl Default for PerturbationDelta {
     fn default() -> Self {
         Self {
             acceleration_x_mpss: 0.0,
@@ -23,13 +23,13 @@ impl Default for PerturbationDelta{
             velocity_z_mps: 0.0,
             distance_x_m: 0.0,
             distance_y_m: 0.0,
-            distance_z_m: 0.0
+            distance_z_m: 0.0,
         }
     }
 }
 
-pub enum Perturbation{
-    SolarObject(bodies::Solarobj, PerturbationDelta)
+pub enum Perturbation {
+    SolarObject(bodies::Solarobj, PerturbationDelta),
 }
 
 /// Module used to apply perturbation calculations on individual bodies
@@ -50,9 +50,10 @@ mod cowell_perturb {
     /// ### Return
     ///     A vector of all perturbations applied to the object basis.
     ///
-    pub fn apply_perturbations(sim_obj: &mut bodies::SimobjT, env: &bodies::Environment)
-        -> Vec<Perturbation>
-    {
+    pub fn apply_perturbations(
+        sim_obj: &mut bodies::SimobjT,
+        env: &bodies::Environment,
+    ) -> Vec<Perturbation> {
         // TODO collect a vector of all perturbations
         // TODO apply perturbations to sim_obj
         // TODO emit vector of all perturbations
@@ -69,9 +70,10 @@ mod cowell_perturb {
     /// ### Return
     ///     A vector of all solar system perturbations calculated for this object.
     ///
-    fn calc_planet_perturb(sim_obj: &bodies::SimobjT, env: &bodies::Environment)
-        -> Vec<Perturbation>
-    {
+    fn calc_planet_perturb(
+        sim_obj: &bodies::SimobjT,
+        env: &bodies::Environment,
+    ) -> Vec<Perturbation> {
         // TODO
         unimplemented!();
     }
@@ -80,10 +82,4 @@ mod cowell_perturb {
 
 /// Main entry point into the cpu_sim module, gathers all needed data for orbit modeling
 /// using Cowell's method.
-pub fn simulate(
-    mut sim_bodies: Vec<bodies::SimobjT>,
-    mut env: bodies::Environment
-){
-
-
-}
+pub fn simulate(mut sim_bodies: Vec<bodies::SimobjT>, mut env: bodies::Environment) {}

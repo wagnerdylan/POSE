@@ -5,23 +5,23 @@
 #[macro_use]
 mod macros;
 
+extern crate chrono;
 extern crate clap;
 extern crate serde;
 extern crate serde_json;
-extern crate chrono;
 
-mod innout;
 mod bodies;
+mod innout;
 mod sim_cpu;
 
-mod cli{
+mod cli {
 
     ///Checks if value passed in to program argument is numeric. Returns a Result
     ///
     ///# Argument
     ///* 'strng' - The value passed by the user
-    fn numeric_validator(strng: String) -> Result<(), String>{
-        if strng.parse::<f32>().is_ok(){
+    fn numeric_validator(strng: String) -> Result<(), String> {
+        if strng.parse::<f32>().is_ok() {
             Ok(())
         } else {
             Err(String::from("Input is non-numeric"))
@@ -31,7 +31,6 @@ mod cli{
     /// Defines the argument structure for the pose simulation program
     /// Returns the result of user arguments passed over the cli
     pub fn check_cli() -> clap::ArgMatches<'static> {
-
         // Defines the input arguments from the cli
         let matches = clap::App::new("Parallel Orbital Simulation Environment (POSE)")
             .version("DEV0.1")
