@@ -18,6 +18,8 @@ pub struct InitData {
 }
 
 pub struct Environment {
+    pub day: f32, // Current day of bodies
+    pub sim_time_s: f64, // Simulation time in seconds
     pub centric: PlanetBody,
     pub bodies: Vec<PlanetBody>
 }
@@ -53,6 +55,7 @@ impl Environment {
     ///
     /// ### Return:
     ///     Each of the vector components x,y,z
+    ///
     pub fn distance_xyz(&self, planet: &PlanetBody, body: &SimobjT) -> (f32, f32, f32) {
 
         let (bx, by, bz) = body.get_coords();
@@ -73,6 +76,48 @@ impl Environment {
              (planet.get_coords().zh - bz).abs())
         }
     }
+
+
+    /// Updates the solar system objects within the environment.
+    ///
+    /// ### Argument
+    /// * 'day_delta' - Delta to increment the old day by.
+    ///
+    pub fn update_solar_system_objs(&mut self, day_delta: f32){
+        let new_day = self.day + day_delta;
+
+        *self.centric.mut_coords() = self.centric.ecliptic_cartesian_coords(new_day);
+
+        for planet in self.bodies.iter_mut(){
+            *planet.mut_coords() = planet.ecliptic_cartesian_coords(new_day);
+        }
+
+        self.day = new_day;
+    }
+
+
+    /// Creates the initial vector of solar system objects.
+    /// 0 - Sun, 1 - Earth, 2 - Moon
+    ///
+    /// ### Argument
+    /// * 'day' - The day value greater than zero. From 2000-01-01
+    ///
+    /// ### Return
+    ///     new Environment loaded with all possible solar system objects tracked by the
+    ///     simulation.
+    ///
+    pub fn new(day: f32) -> Environment {
+        let mut solar_bodies: Vec<PlanetBody> = Vec::new();
+        let earth = Box::new(make_earth(day));
+
+        solar_bodies.push(Box::new(make_sun()));
+        solar_bodies.push(Box::new(make_moon(day)));
+
+
+        Environment{day, sim_time_s: 0f64, centric: earth, bodies: solar_bodies}
+    }
+
+
 }
 
 impl Simobj for Spacecraft {
@@ -177,18 +222,10 @@ pub struct CartesianCoords {
     pub zh: f32  // Z location in meters
 }
 
-impl CartesianCoords {
-
-    pub fn is_heliocentric(&self) -> bool{
-        self.heliocentric
-    }
-
-}
-
 /// Provides utilities for calculating planetary bodies with a Kepler model
 mod kepler_utilities {
     use std::f32::{self, consts};
-    use crate::bodies::{PlanetPS, KeplerModel, CartesianCoords, EARTH_RADII_PER_ASTRONOMICAL_UNIT};
+    use crate::bodies::{PlanetPS, CartesianCoords, EARTH_RADII_PER_ASTRONOMICAL_UNIT};
 
 
     /// Calculate the eccentric anomaly for a given body.
@@ -350,7 +387,7 @@ impl KeplerModel for PlanetPS{
         yh *= AU_METER;
         zh *= AU_METER;
 
-        let mut coords = self.perturb(xh, yh, zh, day);
+        let coords = self.perturb(xh, yh, zh, day);
 
         coords
     }
@@ -438,7 +475,7 @@ impl KeplerModel for Earth {
         y *= AU_METER;
 
         // the Earth's center is always on the plane of the ecliptic (z=0), by definition!
-        let mut coords = CartesianCoords { xh: x, yh: y, zh: 0f32, heliocentric: true };
+        let coords = CartesianCoords { xh: x, yh: y, zh: 0f32, heliocentric: true };
 
         coords
     }
@@ -536,38 +573,4 @@ fn make_moon(day: f32) -> PlanetPS {
     moon_body.coords = moon_body.ecliptic_cartesian_coords(day);
 
     moon_body
-}
-
-/// Creates the initial vector of solar system objects.
-/// 0 - Sun, 1 - Earth, 2 - Moon
-///
-/// ### Argument
-/// * 'day' - The day value greater than zero. From 2000-01-01
-///
-/// ### Return
-///      A vector with the elements defined above.
-///
-pub fn solar_system_objs(day: f32) -> Environment {
-    let mut solar_bodies: Vec<PlanetBody> = Vec::new();
-    let earth = Box::new(make_earth(day));
-
-    solar_bodies.push(Box::new(make_sun()));
-    solar_bodies.push(Box::new(make_moon(day)));
-
-
-    Environment{centric: earth, bodies: solar_bodies}
-}
-
-/// Updates the coords for all PlanetBody objects in the provided vector.
-///
-/// ### Argument
-/// * 'ss_objs' - PlanetBody objects to be updated.
-///
-pub fn update_solar_system_objs(env: &mut Environment, day: f32){
-
-    *env.centric.mut_coords() = env.centric.ecliptic_cartesian_coords(day);
-
-    for planet in env.bodies.iter_mut(){
-        *planet.mut_coords() = planet.ecliptic_cartesian_coords(day);
-    }
 }

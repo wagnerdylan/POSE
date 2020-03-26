@@ -6,6 +6,9 @@
 mod macros;
 
 extern crate clap;
+extern crate serde;
+extern crate serde_json;
+extern crate chrono;
 
 mod innout;
 mod bodies;
@@ -35,22 +38,21 @@ mod cli{
             .about("Simulation aimed to model the orbital environment around Earth for bodies at all magnitudes.")
             .args(&[
                 clap::Arg::with_name("INPUT")
-                    .help("json file containing information on bodies at initilzation.")
+                    .help("json file containing information on bodies at initialization.")
                     .required(true)
                     .index(1),
                 clap::Arg::with_name("out")
-                    .help("Main name of output files.")
+                    .help("Directory to place output files.")
                     .short("o")
                     .long("out")
-                    .value_name("FILE_NAME")
+                    .value_name("DIR_NAME")
                     .takes_value(true),
-                clap::Arg::with_name("step")
+                clap::Arg::with_name("sim_time_step")
                     .help("Simulation time step interval in seconds")
                     .short("s")
                     .long("step")
                     .value_name("STEP_INTERVAL")
                     .takes_value(true)
-                    .default_value("0.1") // Simulation step time
                     .validator(numeric_validator)
             ])
             .get_matches();
@@ -61,11 +63,10 @@ mod cli{
 
 fn main() {
     let matches = cli::check_cli();
-    let inpt_file = matches.value_of("INPUT").unwrap(); // Will always have INPUT
-    let step = matches.value_of("step").unwrap().parse::<f32>().unwrap(); // Always have default
+    let sim_params = innout::gather_program_arguments(matches);
 
-    let (sim_bodies, day) = innout::parse_inpt(inpt_file);
-    let env = bodies::solar_system_objs(day);
+    let (sim_bodies, day) = innout::parse_inpt(sim_params.input_bodies_json.as_str());
+    let env = bodies::Environment::new(day);
 
-    sim_cpu::simulate(sim_bodies, env, day, step);
+    sim_cpu::simulate(sim_bodies, env);
 }

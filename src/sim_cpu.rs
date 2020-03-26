@@ -1,14 +1,79 @@
 use crate::bodies;
 
-/// Module used to apply perturbation calculations on and individual body
+struct PerturbationDelta{
+    acceleration_x_mpss: f32,
+    acceleration_y_mpss: f32,
+    acceleration_z_mpss: f32,
+    velocity_x_mps: f32,
+    velocity_y_mps: f32,
+    velocity_z_mps: f32,
+    distance_x_m: f32,
+    distance_y_m: f32,
+    distance_z_m: f32,
+}
+
+impl Default for PerturbationDelta{
+    fn default() -> Self {
+        Self {
+            acceleration_x_mpss: 0.0,
+            acceleration_y_mpss: 0.0,
+            acceleration_z_mpss: 0.0,
+            velocity_x_mps: 0.0,
+            velocity_y_mps: 0.0,
+            velocity_z_mps: 0.0,
+            distance_x_m: 0.0,
+            distance_y_m: 0.0,
+            distance_z_m: 0.0
+        }
+    }
+}
+
+pub enum Perturbation{
+    SolarObject(bodies::Solarobj, PerturbationDelta)
+}
+
+/// Module used to apply perturbation calculations on individual bodies
 mod cowell_perturb {
     use crate::bodies;
+    use crate::sim_cpu::Perturbation;
 
-    fn planet_perturb(sim_obj: bodies::SimobjT, solar_bodies: &Vec<bodies::PlanetBody>)
-        -> bodies::SimobjT
+    /// Apply all perturbations handled by POSE. This includes:
+    /// * 'Solar Body Earth'
+    /// * 'Solar Body Moon'
+    /// * 'Solar Body Sun'
+    /// TODO add more
+    ///
+    /// ### Parameters
+    /// * 'sim_obj' - The object basis for calculation and apply
+    /// * 'env' - The Simulation environment
+    ///
+    /// ### Return
+    ///     A vector of all perturbations applied to the object basis.
+    ///
+    pub fn apply_perturbations(sim_obj: &mut bodies::SimobjT, env: &bodies::Environment)
+        -> Vec<Perturbation>
+    {
+        // TODO collect a vector of all perturbations
+        // TODO apply perturbations to sim_obj
+        // TODO emit vector of all perturbations
+
+        unimplemented!();
+    }
+
+    /// Calculate perturbations due to solar system objects.
+    ///
+    /// ### Parameters
+    /// * 'sim_obj' - The object basis for calculation
+    /// * 'env' - The Simulation environment
+    ///
+    /// ### Return
+    ///     A vector of all solar system perturbations calculated for this object.
+    ///
+    fn calc_planet_perturb(sim_obj: &bodies::SimobjT, env: &bodies::Environment)
+        -> Vec<Perturbation>
     {
         // TODO
-        sim_obj
+        unimplemented!();
     }
 
 }
@@ -16,11 +81,9 @@ mod cowell_perturb {
 /// Main entry point into the cpu_sim module, gathers all needed data for orbit modeling
 /// using Cowell's method.
 pub fn simulate(
-    sim_bodies: Vec<bodies::SimobjT>,
-    env: bodies::Environment,
-    day: f32,
-    step: f32,
-    ){
+    mut sim_bodies: Vec<bodies::SimobjT>,
+    mut env: bodies::Environment
+){
 
 
 }

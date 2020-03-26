@@ -1,15 +1,34 @@
-
-extern crate serde_json;
-extern crate chrono;
-
 use super::bodies;
 
 use std::error::Error;
 use std::fs::File;
 use std::io::BufReader;
 use std::path::Path;
-use self::chrono::DateTime;
-use self::chrono::offset::TimeZone;
+use chrono::DateTime;
+use chrono::offset::TimeZone;
+use clap::ArgMatches;
+
+pub struct SimulationParameters {
+    pub input_bodies_json: String,
+    pub output_dir: String,
+    pub sim_time_step: f32
+}
+
+pub fn gather_program_arguments(matches: ArgMatches) -> SimulationParameters {
+    // Load with defaults
+    let mut sim_params: SimulationParameters = SimulationParameters {
+        input_bodies_json: "".to_string(),
+        output_dir: "".to_string(),
+        sim_time_step: 0.1
+    };
+
+    sim_params.input_bodies_json = matches.value_of("INPUT").unwrap().to_string();
+    if matches.is_present("sim_time_step") {
+        sim_params.sim_time_step = matches.value_of("sim_time_step").unwrap().parse::<f32>().unwrap();
+    }
+
+    sim_params
+}
 
 /// Main entry point into the init sequence
 ///
@@ -63,7 +82,7 @@ fn datetime_to_days(datetime: &str) -> f32 {
 
 }
 
-/// Function responsable for handling opeing the file and conneting the
+/// Function responsible for handling opening the file and connecting the
 /// serde reader.
 ///
 /// ### Argument
