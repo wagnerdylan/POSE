@@ -4,12 +4,6 @@ struct PerturbationDelta {
     acceleration_x_mpss: f32,
     acceleration_y_mpss: f32,
     acceleration_z_mpss: f32,
-    velocity_x_mps: f32,
-    velocity_y_mps: f32,
-    velocity_z_mps: f32,
-    distance_x_m: f32,
-    distance_y_m: f32,
-    distance_z_m: f32,
 }
 
 impl Default for PerturbationDelta {
@@ -18,12 +12,6 @@ impl Default for PerturbationDelta {
             acceleration_x_mpss: 0.0,
             acceleration_y_mpss: 0.0,
             acceleration_z_mpss: 0.0,
-            velocity_x_mps: 0.0,
-            velocity_y_mps: 0.0,
-            velocity_z_mps: 0.0,
-            distance_x_m: 0.0,
-            distance_y_m: 0.0,
-            distance_z_m: 0.0,
         }
     }
 }
@@ -55,7 +43,8 @@ mod cowell_perturb {
         env: &bodies::Environment,
     ) -> Vec<Perturbation> {
         // TODO collect a vector of all perturbations
-        // TODO apply perturbations to sim_obj
+        // TODO sum perturbations
+        // TODO apply sum of perturbations to sim_obj
         // TODO emit vector of all perturbations
 
         unimplemented!();
