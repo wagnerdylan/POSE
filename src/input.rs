@@ -43,7 +43,7 @@ pub fn gather_program_arguments(matches: ArgMatches) -> SimulationParameters {
 ///      A vector of bodies from the input file.
 ///      The datetime delta from year 2000-01-01
 ///
-pub fn parse_inpt(file: &str) -> (Vec<bodies::SimobjT>, f32) {
+pub fn parse_input(file: &str) -> (Vec<bodies::SimobjT>, f32) {
     let mut sim_bodies: Vec<bodies::SimobjT> = Vec::new();
 
     let ser_objs = read_object_from_file(file).unwrap();

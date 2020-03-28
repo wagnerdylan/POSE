@@ -11,7 +11,8 @@ extern crate serde;
 extern crate serde_json;
 
 mod bodies;
-mod innout;
+mod input;
+mod output;
 mod sim_cpu;
 
 mod cli {
@@ -41,7 +42,7 @@ mod cli {
                     .required(true)
                     .index(1),
                 clap::Arg::with_name("out")
-                    .help("Directory to place output files.")
+                    .help("Output specifier")
                     .short("o")
                     .long("out")
                     .value_name("DIR_NAME")
@@ -62,10 +63,13 @@ mod cli {
 
 fn main() {
     let matches = cli::check_cli();
-    let sim_params = innout::gather_program_arguments(matches);
+    let sim_params = input::gather_program_arguments(matches);
 
-    let (sim_bodies, day) = innout::parse_inpt(sim_params.input_bodies_json.as_str());
+    let (sim_bodies, day) = input::parse_input(sim_params.input_bodies_json.as_str());
     let env = bodies::Environment::new(day);
 
-    sim_cpu::simulate(sim_bodies, env);
+    let output_controller =
+        Box::new(output::csv_output::CSVController::new(sim_params.output_dir.as_str()));
+
+    sim_cpu::simulate(sim_bodies, env, output_controller);
 }
