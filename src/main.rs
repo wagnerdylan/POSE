@@ -9,6 +9,8 @@ extern crate chrono;
 extern crate clap;
 extern crate serde;
 extern crate serde_json;
+extern crate strum;
+extern crate strum_macros;
 
 mod bodies;
 mod input;

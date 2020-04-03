@@ -1,4 +1,6 @@
+use crate::output;
 use serde::{Deserialize, Serialize};
+use strum_macros::Display;
 use std::ptr;
 
 const METERS_PER_ASTRONOMICAL_UNIT: f32 = 1.4959787e+11;
@@ -181,10 +183,13 @@ impl Simobj for Debris {
     }
 }
 
-#[derive(Debug)]
+#[derive(Display, Debug)]
 pub enum Solarobj {
+    #[strum(serialize="sun")]
     Sun { attr: SolarAttr },
+    #[strum(serialize="earth")]
     Earth { attr: SolarAttr },
+    #[strum(serialize="moon")]
     Moon { attr: SolarAttr },
 }
 
@@ -369,6 +374,18 @@ pub trait KeplerModel {
     fn get_coords(&self) -> &CartesianCoords;
 
     fn mut_coords(&mut self) -> &mut CartesianCoords;
+
+    fn get_solar_object(&self) -> &Solarobj;
+
+    fn to_output_form(&self, sim_time_s: f64) -> output::SolarObjectOut {
+        output::SolarObjectOut{
+            name: self.get_solar_object().to_string(),
+            sim_time: sim_time_s,
+            x_coord: self.get_coords().xh,
+            y_coord: self.get_coords().yh,
+            z_coord: self.get_coords().zh
+        }
+    }
 }
 
 impl KeplerModel for PlanetPS {
@@ -441,6 +458,10 @@ impl KeplerModel for PlanetPS {
     fn mut_coords(&mut self) -> &mut CartesianCoords {
         &mut self.coords
     }
+
+    fn get_solar_object(&self) -> &Solarobj {
+        &self.solartype
+    }
 }
 
 impl PlanetPS {
@@ -511,6 +532,10 @@ impl KeplerModel for Earth {
     fn mut_coords(&mut self) -> &mut CartesianCoords {
         &mut self.coords
     }
+
+    fn get_solar_object(&self) -> &Solarobj {
+        &self.solartype
+    }
 }
 
 impl KeplerModel for Sun {
@@ -529,6 +554,10 @@ impl KeplerModel for Sun {
 
     fn mut_coords(&mut self) -> &mut CartesianCoords {
         &mut self.coords
+    }
+
+    fn get_solar_object(&self) -> &Solarobj {
+        &self.solartype
     }
 }
 

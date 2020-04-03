@@ -1,5 +1,7 @@
 use crate::bodies;
 use crate::output;
+use std::string::ToString;
+use strum_macros::Display;
 
 struct PerturbationDelta {
     id: u32,
@@ -21,7 +23,9 @@ impl Default for PerturbationDelta {
     }
 }
 
+#[derive(Display)]
 pub enum Perturbation {
+    #[strum(serialize="solar_obj")]
     SolarObject(bodies::Solarobj, PerturbationDelta),
 }
 
@@ -34,7 +38,9 @@ impl Perturbation {
             sim_time: match &self {
                 Perturbation::SolarObject(_, perturb_delta) => perturb_delta.sim_time
             },
-            petrub_type: "".to_string(),
+            petrub_type: match &self {
+                Perturbation::SolarObject(solar_obj, _) => format!("{}_{}", self.to_string(), solar_obj.to_string())
+            },
             acceleration_x_mpss: match &self {
                 Perturbation::SolarObject(_, perturb_delta) => perturb_delta.acceleration_x_mpss
             },
@@ -75,7 +81,7 @@ mod cowell_perturb {
     pub fn apply_perturbations(
         sim_obj: &mut bodies::SimobjT,
         env: &bodies::Environment,
-    ) -> Vec<Perturbation> {
+    ) -> Option<Vec<Perturbation>> {
         // TODO collect a vector of all perturbations
         // TODO sum perturbations
         // TODO apply sum of perturbations to sim_obj
