@@ -54,7 +54,7 @@ impl Perturbation {
     }
 }
 
-fn write_out_perturbations(perturbations: Vec<Perturbation>, output_controller: Box<output::SimulationOutput>) {
+fn write_out_perturbations(perturbations: Vec<Perturbation>, mut output_controller: Box<dyn output::SimulationOutput>) {
     for perturbation in perturbations {
         output_controller.write_out_perturbation(perturbation.into_output_form());
     }
@@ -74,6 +74,7 @@ mod cowell_perturb {
     /// ### Parameters
     /// * 'sim_obj' - The object basis for calculation and apply
     /// * 'env' - The Simulation environment
+    /// * 'do_return_peturb' - true if vector should be returned, false otherwise
     ///
     /// ### Return
     ///     A vector of all perturbations applied to the object basis.
@@ -81,6 +82,7 @@ mod cowell_perturb {
     pub fn apply_perturbations(
         sim_obj: &mut bodies::SimobjT,
         env: &bodies::Environment,
+        do_return_peturb: bool
     ) -> Option<Vec<Perturbation>> {
         // TODO collect a vector of all perturbations
         // TODO sum perturbations
@@ -114,7 +116,7 @@ mod cowell_perturb {
 pub fn simulate(
     mut sim_bodies: Vec<bodies::SimobjT>,
     mut env: bodies::Environment,
-    mut output_controller: Box<output::SimulationOutput>
+    mut output_controller: Box<dyn output::SimulationOutput>
 ){
 
 }

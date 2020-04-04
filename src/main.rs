@@ -11,6 +11,7 @@ extern crate serde;
 extern crate serde_json;
 extern crate strum;
 extern crate strum_macros;
+extern crate csv;
 
 mod bodies;
 mod input;
@@ -23,6 +24,7 @@ mod cli {
     ///
     ///# Argument
     ///* 'strng' - The value passed by the user
+    ///
     fn numeric_validator(strng: String) -> Result<(), String> {
         if strng.parse::<f32>().is_ok() {
             Ok(())
@@ -67,8 +69,9 @@ fn main() {
     let matches = cli::check_cli();
     let sim_params = input::gather_program_arguments(matches);
 
-    let (sim_bodies, day) = input::parse_input(sim_params.input_bodies_json.as_str());
-    let env = bodies::Environment::new(day);
+    let (sim_bodies, start_time) =
+        input::parse_input(sim_params.input_bodies_json.as_str());
+    let env = bodies::Environment::new(start_time);
 
     let output_controller =
         Box::new(output::csv_output::CSVController::new(sim_params.output_dir.as_str()));

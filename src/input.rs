@@ -1,6 +1,5 @@
 use super::bodies;
 
-use chrono::offset::TimeZone;
 use chrono::DateTime;
 use clap::ArgMatches;
 use std::error::Error;
@@ -31,6 +30,13 @@ pub fn gather_program_arguments(matches: ArgMatches) -> SimulationParameters {
             .unwrap();
     }
 
+    if matches.is_present("out") {
+        sim_params.output_dir = matches
+            .value_of("out")
+            .unwrap()
+            .to_string()
+    }
+
     sim_params
 }
 
@@ -43,7 +49,7 @@ pub fn gather_program_arguments(matches: ArgMatches) -> SimulationParameters {
 ///      A vector of bodies from the input file.
 ///      The datetime delta from year 2000-01-01
 ///
-pub fn parse_input(file: &str) -> (Vec<bodies::SimobjT>, f32) {
+pub fn parse_input(file: &str) -> (Vec<bodies::SimobjT>, DateTime<chrono::Utc>) {
     let mut sim_bodies: Vec<bodies::SimobjT> = Vec::new();
 
     let ser_objs = read_object_from_file(file).unwrap();
@@ -64,27 +70,13 @@ pub fn parse_input(file: &str) -> (Vec<bodies::SimobjT>, f32) {
     assign_id(&mut sim_bodies);
 
     let datetime = ser_objs.date;
-    let dt_delta = datetime_to_days(&datetime);
-
-    (sim_bodies, dt_delta)
-}
-
-/// Calculates a delta for provided datetime from 0/Jan/2000 00:00 UTC
-///
-/// ### Argument
-/// * 'datetime' - User provided datetime string.
-///
-/// ### Return
-///     The delta from 0/Jan/2000 00:00 UTC in days.
-///
-fn datetime_to_days(datetime: &str) -> f32 {
-    let origin_dt = chrono::Utc.ymd(2000, 1, 1).and_hms(0, 0, 0);
     let datetime_obj = datetime
         .parse::<DateTime<chrono::Utc>>()
         .expect("Input file contains invalid datetime format, expected ISO 8601 format.");
 
-    1.15741e-5f32 * (datetime_obj - origin_dt).num_seconds() as f32
+    (sim_bodies, datetime_obj)
 }
+
 
 /// Function responsible for handling opening the file and connecting the
 /// serde reader.
@@ -96,7 +88,7 @@ fn datetime_to_days(datetime: &str) -> f32 {
 ///      A result object loaded with an IO error on failure or the serde reader on
 ///      success.
 ///
-fn read_object_from_file<P: AsRef<Path>>(path: P) -> Result<bodies::InitData, Box<Error>> {
+fn read_object_from_file<P: AsRef<Path>>(path: P) -> Result<bodies::InitData, Box<dyn Error>> {
     // Open the file in read-only mode with buffer.
     let file = File::open(path)?;
     let reader = BufReader::new(file);

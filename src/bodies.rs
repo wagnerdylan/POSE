@@ -2,6 +2,7 @@ use crate::output;
 use serde::{Deserialize, Serialize};
 use strum_macros::Display;
 use std::ptr;
+use chrono::{Utc, DateTime, TimeZone};
 
 const METERS_PER_ASTRONOMICAL_UNIT: f32 = 1.4959787e+11;
 const METERS_PER_EARTH_EQUATORIAL_RADIUS: f32 = 6378140.0;
@@ -22,6 +23,7 @@ pub struct InitData {
 pub struct Environment {
     pub day: f32,        // Current day of bodies
     pub sim_time_s: f64, // Simulation time in seconds
+    pub start_time: chrono::DateTime<Utc>,
     pub centric: PlanetBody,
     pub bodies: Vec<PlanetBody>,
 }
@@ -97,6 +99,21 @@ impl Environment {
         self.day = new_day;
     }
 
+    /// Calculates a delta for provided datetime from 0/Jan/2000 00:00 UTC
+    ///
+    /// ### Argument
+    /// * 'datetime' - User provided datetime object.
+    ///
+    /// ### Return
+    ///     The delta from 0/Jan/2000 00:00 UTC in days.
+    ///
+    fn datetime_to_days(datetime_obj: &DateTime<chrono::Utc>) -> f32 {
+        let origin_dt = chrono::Utc.ymd(2000, 1, 1).and_hms(0, 0, 0);
+
+        1.15741e-5f32 * (*datetime_obj - origin_dt).num_seconds() as f32
+    }
+
+
     /// Creates the initial vector of solar system objects.
     /// 0 - Sun, 1 - Earth, 2 - Moon
     ///
@@ -107,7 +124,9 @@ impl Environment {
     ///     new Environment loaded with all possible solar system objects tracked by the
     ///     simulation.
     ///
-    pub fn new(day: f32) -> Environment {
+    pub fn new(start_time: DateTime<Utc>) -> Environment {
+        let day = Environment::datetime_to_days(&start_time);
+
         let mut solar_bodies: Vec<PlanetBody> = Vec::new();
         let earth = Box::new(make_earth(day));
 
@@ -116,6 +135,7 @@ impl Environment {
 
         Environment {
             day,
+            start_time,
             sim_time_s: 0f64,
             centric: earth,
             bodies: solar_bodies,
