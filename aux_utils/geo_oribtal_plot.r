@@ -19,12 +19,12 @@ type_body <- args[3]
 plot_title <- args[4]
 
 data <- fread(filepath)
-data <- subset(data, type == get("type_body"))
+data <- subset(data, name == get("type_body"))
 data <- data[, orbit_num := NA]
 
 earth <- data.frame(x0=0, y0=0, r=6378137.0)
 
-p <- ggplot(data, aes(x, y, color=z))
+p <- ggplot(data, aes(x_coord, y_coord, color=z_coord))
 p <- p + geom_path()
 p <- p + geom_hline(yintercept=0) + geom_vline(xintercept=0)
 p <- p + theme_light()

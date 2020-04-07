@@ -2,7 +2,8 @@ use crate::output;
 use serde::{Deserialize, Serialize};
 use strum_macros::Display;
 use std::ptr;
-use chrono::{Utc, DateTime, TimeZone};
+use chrono::{Utc, DateTime, TimeZone, Duration};
+use std::ops::Add;
 
 const METERS_PER_ASTRONOMICAL_UNIT: f32 = 1.4959787e+11;
 const METERS_PER_EARTH_EQUATORIAL_RADIUS: f32 = 6378140.0;
@@ -22,6 +23,7 @@ pub struct InitData {
 
 pub struct Environment {
     pub day: f32,        // Current day of bodies
+    pub last_day_update_s: f64,
     pub sim_time_s: f64, // Simulation time in seconds
     pub start_time: chrono::DateTime<Utc>,
     pub centric: PlanetBody,
@@ -49,6 +51,7 @@ pub struct Spacecraft {
 }
 
 impl Environment {
+
     /// Calculates the distance for each vector component from one planet to another body.
     ///
     /// ### Arguments:
@@ -85,10 +88,11 @@ impl Environment {
     /// Updates the solar system objects within the environment.
     ///
     /// ### Argument
-    /// * 'day_delta' - Delta to increment the old day by.
+    /// * 'up_day' - New datetime of simulation.
     ///
-    pub fn update_solar_system_objs(&mut self, day_delta: f32) {
-        let new_day = self.day + day_delta;
+    fn update_solar_objs(&mut self, up_day: &DateTime<chrono::Utc>) {
+        let new_day = Self::datetime_to_days(up_day);
+
 
         *self.centric.mut_coords() = self.centric.ecliptic_cartesian_coords(new_day);
 
@@ -97,6 +101,15 @@ impl Environment {
         }
 
         self.day = new_day;
+    }
+
+
+    pub fn update(&mut self) {
+        let new_time = self.start_time + Duration::seconds(self.sim_time_s as i64);
+
+        self.update_solar_objs(&new_time);
+
+        self.last_day_update_s = self.sim_time_s;
     }
 
     /// Calculates a delta for provided datetime from 0/Jan/2000 00:00 UTC
@@ -135,6 +148,7 @@ impl Environment {
 
         Environment {
             day,
+            last_day_update_s: 0.0,
             start_time,
             sim_time_s: 0f64,
             centric: earth,
@@ -278,15 +292,18 @@ mod kepler_utilities {
         let deg_from_rad = 180f32 / consts::PI;
         let mut ecc: f32 = m + (e * sin_deg!(m) * (1f32 + (e * cos_deg!(m))));
 
+        let mut iters = 0;
         loop {
             let f: f32 =
                 ecc - (ecc - (deg_from_rad * e * sin_deg!(ecc)) - m) / (1f32 - e * cos_deg!(ecc));
             let error = (f - ecc).abs();
             ecc = f;
 
-            if error < 1.0e-2 {
+            if error < 0.1e-8 || iters > 30 {
                 break;
             }
+
+            iters += 1;
         }
 
         ecc

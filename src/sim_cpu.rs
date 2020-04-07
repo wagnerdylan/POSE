@@ -2,6 +2,8 @@ use crate::bodies;
 use crate::output;
 use std::string::ToString;
 use strum_macros::Display;
+use bodies::Environment;
+use input::SimulationParameters;
 
 struct PerturbationDelta {
     id: u32,
@@ -54,9 +56,27 @@ impl Perturbation {
     }
 }
 
-fn write_out_perturbations(perturbations: Vec<Perturbation>, mut output_controller: Box<dyn output::SimulationOutput>) {
+/// Write out all perturbations to output controller.
+///
+/// ### Arguments
+/// * 'perturbations' - Vector containing perturbations to be written out.
+/// * 'output_controller' - Controller object used to facilitate the output of perturbation data.
+///
+fn write_out_all_perturbations(perturbations: Vec<Perturbation>, output_controller: &mut Box<dyn output::SimulationOutput>) {
     for perturbation in perturbations {
         output_controller.write_out_perturbation(perturbation.into_output_form());
+    }
+}
+
+fn write_out_all_object_parameters(sim_objects: &Vec<bodies::SimobjT>, output_controller: &mut Box<dyn output::SimulationOutput>) {
+    unimplemented!();
+}
+
+fn write_out_all_solar_objects(env: &bodies::Environment, output_controller: &mut Box<dyn output::SimulationOutput>) {
+    output_controller.write_out_solar_object(env.centric.to_output_form(env.sim_time_s));
+
+    for solar_object in &env.bodies {
+        output_controller.write_out_solar_object(solar_object.to_output_form(env.sim_time_s));
     }
 }
 
@@ -111,12 +131,23 @@ mod cowell_perturb {
 
 }
 
+
 /// Main entry point into the cpu_sim module, gathers all needed data for orbit modeling
 /// using Cowell's method.
 pub fn simulate(
     mut sim_bodies: Vec<bodies::SimobjT>,
     mut env: bodies::Environment,
-    mut output_controller: Box<dyn output::SimulationOutput>
+    mut output_controller: Box<dyn output::SimulationOutput>,
+    sim_params: SimulationParameters
 ){
 
+    loop {
+
+        if env.sim_time_s > env.last_day_update_s + sim_params.sim_solar_step as f64 {
+            write_out_all_solar_objects(&env, &mut output_controller);
+            env.update();
+        }
+
+        env.sim_time_s += sim_params.sim_time_step as f64;
+    }
 }

@@ -11,6 +11,7 @@ pub struct SimulationParameters {
     pub input_bodies_json: String,
     pub output_dir: String,
     pub sim_time_step: f32,
+    pub sim_solar_step: f32,
 }
 
 pub fn gather_program_arguments(matches: ArgMatches) -> SimulationParameters {
@@ -18,7 +19,8 @@ pub fn gather_program_arguments(matches: ArgMatches) -> SimulationParameters {
     let mut sim_params: SimulationParameters = SimulationParameters {
         input_bodies_json: "".to_string(),
         output_dir: "".to_string(),
-        sim_time_step: 0.1,
+        sim_time_step: 1.0,
+        sim_solar_step: 3600.0 // Every hour
     };
 
     sim_params.input_bodies_json = matches.value_of("INPUT").unwrap().to_string();

@@ -76,5 +76,5 @@ fn main() {
     let output_controller =
         Box::new(output::csv_output::CSVController::new(sim_params.output_dir.as_str()));
 
-    sim_cpu::simulate(sim_bodies, env, output_controller);
+    sim_cpu::simulate(sim_bodies, env, output_controller, sim_params);
 }
