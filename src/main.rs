@@ -7,11 +7,11 @@ mod macros;
 
 extern crate chrono;
 extern crate clap;
+extern crate csv;
 extern crate serde;
 extern crate serde_json;
 extern crate strum;
 extern crate strum_macros;
-extern crate csv;
 
 mod bodies;
 mod input;
@@ -69,12 +69,12 @@ fn main() {
     let matches = cli::check_cli();
     let sim_params = input::gather_program_arguments(matches);
 
-    let (sim_bodies, start_time) =
-        input::parse_input(sim_params.input_bodies_json.as_str());
+    let (sim_bodies, start_time) = input::parse_input(sim_params.input_bodies_json.as_str());
     let env = bodies::Environment::new(start_time);
 
-    let output_controller =
-        Box::new(output::csv_output::CSVController::new(sim_params.output_dir.as_str()));
+    let output_controller = Box::new(output::csv_output::CSVController::new(
+        sim_params.output_dir.as_str(),
+    ));
 
     sim_cpu::simulate(sim_bodies, env, output_controller, sim_params);
 }

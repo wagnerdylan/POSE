@@ -1,9 +1,8 @@
 use crate::output;
+use chrono::{DateTime, Duration, TimeZone, Utc};
 use serde::{Deserialize, Serialize};
-use strum_macros::Display;
 use std::ptr;
-use chrono::{Utc, DateTime, TimeZone, Duration};
-use std::ops::Add;
+use strum_macros::Display;
 
 const METERS_PER_ASTRONOMICAL_UNIT: f32 = 1.4959787e+11;
 const METERS_PER_EARTH_EQUATORIAL_RADIUS: f32 = 6378140.0;
@@ -19,15 +18,6 @@ pub struct InitData {
     pub date: String,                // Datetime in ISO 8601 format
     pub debris: Vec<Debris>,         // Debris objects
     pub spacecraft: Vec<Spacecraft>, // Spacecraft objects
-}
-
-pub struct Environment {
-    pub day: f32,        // Current day of bodies
-    pub last_day_update_s: f64,
-    pub sim_time_s: f64, // Simulation time in seconds
-    pub start_time: chrono::DateTime<Utc>,
-    pub centric: PlanetBody,
-    pub bodies: Vec<PlanetBody>,
 }
 
 pub trait Simobj {
@@ -48,113 +38,6 @@ pub struct Spacecraft {
     x_vel: f32,
     y_vel: f32,
     z_vel: f32, // Add more
-}
-
-impl Environment {
-
-    /// Calculates the distance for each vector component from one planet to another body.
-    ///
-    /// ### Arguments:
-    /// * 'planet' - The planet body.
-    /// * 'body' - The simulation body.
-    ///
-    /// ### Return:
-    ///     Each of the vector components x,y,z
-    ///
-    pub fn distance_xyz(&self, planet: &PlanetBody, body: &SimobjT) -> (f32, f32, f32) {
-        let (bx, by, bz) = body.get_coords();
-
-        // If centric was passed in as body
-        if ptr::eq(self.centric.as_ref(), planet.as_ref()) {
-            print!("Same");
-            return (bx, by, bz);
-        }
-
-        if planet.get_coords().heliocentric {
-            (
-                (self.centric.get_coords().xh + bx - planet.get_coords().xh).abs(),
-                (self.centric.get_coords().yh + by - planet.get_coords().yh).abs(),
-                (self.centric.get_coords().zh + bz - planet.get_coords().zh).abs(),
-            )
-        } else {
-            (
-                (planet.get_coords().xh - bx).abs(),
-                (planet.get_coords().yh - by).abs(),
-                (planet.get_coords().zh - bz).abs(),
-            )
-        }
-    }
-
-    /// Updates the solar system objects within the environment.
-    ///
-    /// ### Argument
-    /// * 'up_day' - New datetime of simulation.
-    ///
-    fn update_solar_objs(&mut self, up_day: &DateTime<chrono::Utc>) {
-        let new_day = Self::datetime_to_days(up_day);
-
-
-        *self.centric.mut_coords() = self.centric.ecliptic_cartesian_coords(new_day);
-
-        for planet in self.bodies.iter_mut() {
-            *planet.mut_coords() = planet.ecliptic_cartesian_coords(new_day);
-        }
-
-        self.day = new_day;
-    }
-
-
-    pub fn update(&mut self) {
-        let new_time = self.start_time + Duration::seconds(self.sim_time_s as i64);
-
-        self.update_solar_objs(&new_time);
-
-        self.last_day_update_s = self.sim_time_s;
-    }
-
-    /// Calculates a delta for provided datetime from 0/Jan/2000 00:00 UTC
-    ///
-    /// ### Argument
-    /// * 'datetime' - User provided datetime object.
-    ///
-    /// ### Return
-    ///     The delta from 0/Jan/2000 00:00 UTC in days.
-    ///
-    fn datetime_to_days(datetime_obj: &DateTime<chrono::Utc>) -> f32 {
-        let origin_dt = chrono::Utc.ymd(2000, 1, 1).and_hms(0, 0, 0);
-
-        1.15741e-5f32 * (*datetime_obj - origin_dt).num_seconds() as f32
-    }
-
-
-    /// Creates the initial vector of solar system objects.
-    /// 0 - Sun, 1 - Earth, 2 - Moon
-    ///
-    /// ### Argument
-    /// * 'day' - The day value greater than zero. From 2000-01-01
-    ///
-    /// ### Return
-    ///     new Environment loaded with all possible solar system objects tracked by the
-    ///     simulation.
-    ///
-    pub fn new(start_time: DateTime<Utc>) -> Environment {
-        let day = Environment::datetime_to_days(&start_time);
-
-        let mut solar_bodies: Vec<PlanetBody> = Vec::new();
-        let earth = Box::new(make_earth(day));
-
-        solar_bodies.push(Box::new(make_sun()));
-        solar_bodies.push(Box::new(make_moon(day)));
-
-        Environment {
-            day,
-            last_day_update_s: 0.0,
-            start_time,
-            sim_time_s: 0f64,
-            centric: earth,
-            bodies: solar_bodies,
-        }
-    }
 }
 
 impl Simobj for Spacecraft {
@@ -217,13 +100,125 @@ impl Simobj for Debris {
     }
 }
 
+pub struct Environment {
+    pub day: f32, // Current day of bodies
+    pub last_day_update_s: f64,
+    pub sim_time_s: f64, // Simulation time in seconds
+    pub start_time: chrono::DateTime<Utc>,
+    pub centric: PlanetBody,
+    pub bodies: Vec<PlanetBody>,
+}
+
+impl Environment {
+    /// Calculates the distance for each vector component from one planet to another body.
+    ///
+    /// ### Arguments:
+    /// * 'planet' - The planet body.
+    /// * 'body' - The simulation body.
+    ///
+    /// ### Return:
+    ///     Each of the vector components x,y,z
+    ///
+    pub fn distance_xyz(&self, planet: &PlanetBody, body: &SimobjT) -> (f32, f32, f32) {
+        let (bx, by, bz) = body.get_coords();
+
+        // If centric was passed in as body
+        if ptr::eq(self.centric.as_ref(), planet.as_ref()) {
+            print!("Same");
+            return (bx, by, bz);
+        }
+
+        if planet.get_coords().heliocentric {
+            (
+                (self.centric.get_coords().xh + bx - planet.get_coords().xh).abs(),
+                (self.centric.get_coords().yh + by - planet.get_coords().yh).abs(),
+                (self.centric.get_coords().zh + bz - planet.get_coords().zh).abs(),
+            )
+        } else {
+            (
+                (planet.get_coords().xh - bx).abs(),
+                (planet.get_coords().yh - by).abs(),
+                (planet.get_coords().zh - bz).abs(),
+            )
+        }
+    }
+
+    /// Updates the solar system objects within the environment.
+    ///
+    /// ### Argument
+    /// * 'up_day' - New datetime of simulation.
+    ///
+    fn update_solar_objs(&mut self, up_day: &DateTime<chrono::Utc>) {
+        let new_day = Self::datetime_to_days(up_day);
+
+        *self.centric.mut_coords() = self.centric.ecliptic_cartesian_coords(new_day);
+
+        for planet in self.bodies.iter_mut() {
+            *planet.mut_coords() = planet.ecliptic_cartesian_coords(new_day);
+        }
+
+        self.day = new_day;
+    }
+
+    pub fn update(&mut self) {
+        let new_time = self.start_time + Duration::seconds(self.sim_time_s as i64);
+
+        self.update_solar_objs(&new_time);
+
+        self.last_day_update_s = self.sim_time_s;
+    }
+
+    /// Calculates a delta for provided datetime from 0/Jan/2000 00:00 UTC
+    ///
+    /// ### Argument
+    /// * 'datetime' - User provided datetime object.
+    ///
+    /// ### Return
+    ///     The delta from 0/Jan/2000 00:00 UTC in days.
+    ///
+    fn datetime_to_days(datetime_obj: &DateTime<chrono::Utc>) -> f32 {
+        let origin_dt = chrono::Utc.ymd(2000, 1, 1).and_hms(0, 0, 0);
+
+        1.15741e-5f32 * (*datetime_obj - origin_dt).num_seconds() as f32
+    }
+
+    /// Creates the initial vector of solar system objects.
+    /// 0 - Sun, 1 - Earth, 2 - Moon
+    ///
+    /// ### Argument
+    /// * 'day' - The day value greater than zero. From 2000-01-01
+    ///
+    /// ### Return
+    ///     new Environment loaded with all possible solar system objects tracked by the
+    ///     simulation.
+    ///
+    pub fn new(start_time: DateTime<Utc>) -> Environment {
+        let day = Environment::datetime_to_days(&start_time);
+
+        let mut solar_bodies: Vec<PlanetBody> = Vec::new();
+        let earth = Box::new(make_earth(day));
+
+        solar_bodies.push(Box::new(make_sun()));
+        solar_bodies.push(Box::new(make_moon(day)));
+
+        Environment {
+            day,
+            last_day_update_s: 0.0,
+            start_time,
+            sim_time_s: 0f64,
+            centric: earth,
+            bodies: solar_bodies,
+        }
+    }
+}
+
 #[derive(Display, Debug)]
 pub enum Solarobj {
-    #[strum(serialize="sun")]
+    #[strum(serialize = "sun")]
     Sun { attr: SolarAttr },
-    #[strum(serialize="earth")]
+    #[strum(serialize = "earth")]
     Earth { attr: SolarAttr },
-    #[strum(serialize="moon")]
+    #[strum(serialize = "moon")]
     Moon { attr: SolarAttr },
 }
 
@@ -393,7 +388,6 @@ mod kepler_utilities {
             heliocentric: false,
         }
     }
-
 }
 
 pub trait KeplerModel {
@@ -415,12 +409,12 @@ pub trait KeplerModel {
     fn get_solar_object(&self) -> &Solarobj;
 
     fn to_output_form(&self, sim_time_s: f64) -> output::SolarObjectOut {
-        output::SolarObjectOut{
+        output::SolarObjectOut {
             name: self.get_solar_object().to_string(),
             sim_time: sim_time_s,
             x_coord: self.get_coords().xh,
             y_coord: self.get_coords().yh,
-            z_coord: self.get_coords().zh
+            z_coord: self.get_coords().zh,
         }
     }
 }

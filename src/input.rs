@@ -20,7 +20,7 @@ pub fn gather_program_arguments(matches: ArgMatches) -> SimulationParameters {
         input_bodies_json: "".to_string(),
         output_dir: "".to_string(),
         sim_time_step: 1.0,
-        sim_solar_step: 3600.0 // Every hour
+        sim_solar_step: 3600.0 * 12.0, // Every half day
     };
 
     sim_params.input_bodies_json = matches.value_of("INPUT").unwrap().to_string();
@@ -33,10 +33,7 @@ pub fn gather_program_arguments(matches: ArgMatches) -> SimulationParameters {
     }
 
     if matches.is_present("out") {
-        sim_params.output_dir = matches
-            .value_of("out")
-            .unwrap()
-            .to_string()
+        sim_params.output_dir = matches.value_of("out").unwrap().to_string()
     }
 
     sim_params
@@ -78,7 +75,6 @@ pub fn parse_input(file: &str) -> (Vec<bodies::SimobjT>, DateTime<chrono::Utc>) 
 
     (sim_bodies, datetime_obj)
 }
-
 
 /// Function responsible for handling opening the file and connecting the
 /// serde reader.
