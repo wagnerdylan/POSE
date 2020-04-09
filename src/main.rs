@@ -12,6 +12,7 @@ extern crate serde;
 extern crate serde_json;
 extern crate strum;
 extern crate strum_macros;
+extern crate ndarray;
 
 mod bodies;
 mod input;

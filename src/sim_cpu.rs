@@ -4,7 +4,7 @@ use input::SimulationParameters;
 use std::string::ToString;
 use strum_macros::Display;
 
-struct PerturbationDelta {
+pub struct PerturbationDelta {
     id: u32,
     sim_time: f64,
     acceleration_x_mpss: f32,
@@ -93,7 +93,7 @@ fn write_out_all_solar_objects(
 /// Module used to apply perturbation calculations on individual bodies
 mod cowell_perturb {
     use crate::bodies;
-    use crate::sim_cpu::Perturbation;
+    use crate::sim_cpu::{Perturbation, PerturbationDelta};
 
     /// Apply all perturbations handled by POSE. This includes:
     /// * 'Solar Body Earth'
@@ -107,7 +107,7 @@ mod cowell_perturb {
     /// * 'do_return_peturb' - true if vector should be returned, false otherwise
     ///
     /// ### Return
-    ///     A vector of all perturbations applied to the object basis.
+    ///     A vector of perturbation deltas in _do_return_peturb is true or none.
     ///
     pub fn apply_perturbations(
         _sim_obj: &mut bodies::SimobjT,
@@ -122,20 +122,44 @@ mod cowell_perturb {
         unimplemented!();
     }
 
+    fn l2_norm(x: ndarray::ArrayView1<f64>) -> f64 {
+        x.dot(&x).sqrt()
+    }
+
+    fn normalize(mut x: ndarray::Array1<f64>) -> ndarray::Array1<f64> {
+        let norm = l2_norm(x.view());
+        x.mapv_inplace(|e| e/norm);
+        x
+    }
+
     /// Calculate perturbations due to solar system objects.
     ///
     /// ### Parameters
     /// * 'sim_obj' - The object basis for calculation
     /// * 'env' - The Simulation environment
+    /// * 'do_return_peturb' - true if vector should be returned, false otherwise
     ///
     /// ### Return
-    ///     A vector of all solar system perturbations calculated for this object.
+    ///     A struct of size two containing
+    ///         (Total perturbation delta, individual perturbation deltas or none)
     ///
     fn calc_planet_perturb(
-        _sim_obj: &bodies::SimobjT,
-        _env: &bodies::Environment,
-    ) -> Vec<Perturbation> {
-        // TODO
+        sim_obj: &bodies::SimobjT,
+        env: &bodies::Environment,
+        _do_return_peturb: bool,
+    ) -> (PerturbationDelta, Option<Vec<Perturbation>>) {
+
+        // TODO function which uses vector form of Newton's law of universal gravitation
+        fn newton_gravitation(sim_obj: &bodies::SimobjT, env: &bodies::Environment)
+            -> ndarray::Array1<f64>
+        {
+            unimplemented!();
+            // TODO Calculate L2 Norm from sim_obj to env centric
+            // TODO Calculate unit vector for perturbation
+            // TODO Calculate force using Newton's law of universal gravitation
+            // TODO Return the force vector
+        }
+
         unimplemented!();
     }
 }
