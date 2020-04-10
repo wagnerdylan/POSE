@@ -83,11 +83,19 @@ fn write_out_all_solar_objects(
     env: &bodies::Environment,
     output_controller: &mut Box<dyn output::SimulationOutput>,
 ) {
-    output_controller.write_out_solar_object(env.centric.to_output_form(env.sim_time_s));
-
-    for solar_object in &env.bodies {
+    for solar_object in env.get_solar_objects() {
         output_controller.write_out_solar_object(solar_object.to_output_form(env.sim_time_s));
     }
+}
+
+fn l2_norm(x: ndarray::ArrayView1<f64>) -> f64 {
+    x.dot(&x).sqrt()
+}
+
+fn normalize(mut x: ndarray::Array1<f64>) -> ndarray::Array1<f64> {
+    let norm = l2_norm(x.view());
+    x.mapv_inplace(|e| e/norm);
+    x
 }
 
 /// Module used to apply perturbation calculations on individual bodies
@@ -122,15 +130,6 @@ mod cowell_perturb {
         unimplemented!();
     }
 
-    fn l2_norm(x: ndarray::ArrayView1<f64>) -> f64 {
-        x.dot(&x).sqrt()
-    }
-
-    fn normalize(mut x: ndarray::Array1<f64>) -> ndarray::Array1<f64> {
-        let norm = l2_norm(x.view());
-        x.mapv_inplace(|e| e/norm);
-        x
-    }
 
     /// Calculate perturbations due to solar system objects.
     ///

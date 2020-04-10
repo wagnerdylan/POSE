@@ -105,43 +105,10 @@ pub struct Environment {
     pub last_day_update_s: f64,
     pub sim_time_s: f64, // Simulation time in seconds
     pub start_time: chrono::DateTime<Utc>,
-    pub centric: PlanetBody,
-    pub bodies: Vec<PlanetBody>,
+    bodies: Vec<PlanetBody>, // 0th index is always the centric
 }
 
 impl Environment {
-    /// Calculates the distance for each vector component from one planet to another body.
-    ///
-    /// ### Arguments:
-    /// * 'planet' - The planet body.
-    /// * 'body' - The simulation body.
-    ///
-    /// ### Return:
-    ///     Each of the vector components x,y,z
-    ///
-    pub fn distance_xyz(&self, planet: &PlanetBody, body: &SimobjT) -> (f32, f32, f32) {
-        let (bx, by, bz) = body.get_coords();
-
-        // If centric was passed in as body
-        if ptr::eq(self.centric.as_ref(), planet.as_ref()) {
-            print!("Same");
-            return (bx, by, bz);
-        }
-
-        if planet.get_coords().heliocentric {
-            (
-                (self.centric.get_coords().xh + bx - planet.get_coords().xh).abs(),
-                (self.centric.get_coords().yh + by - planet.get_coords().yh).abs(),
-                (self.centric.get_coords().zh + bz - planet.get_coords().zh).abs(),
-            )
-        } else {
-            (
-                (planet.get_coords().xh - bx).abs(),
-                (planet.get_coords().yh - by).abs(),
-                (planet.get_coords().zh - bz).abs(),
-            )
-        }
-    }
 
     /// Updates the solar system objects within the environment.
     ///
@@ -151,14 +118,36 @@ impl Environment {
     fn update_solar_objs(&mut self, up_day: &DateTime<chrono::Utc>) {
         let new_day = Self::datetime_to_days(up_day);
 
-        *self.centric.mut_coords() = self.centric.ecliptic_cartesian_coords(new_day);
-
         for planet in self.bodies.iter_mut() {
             *planet.mut_coords() = planet.ecliptic_cartesian_coords(new_day);
         }
 
         self.day = new_day;
     }
+
+    /// Calculates the distance in X, Y, Z form from a simulation object to the solar body
+    /// specified the the provided index. For reference, the solar body at index 0 is always the
+    /// centric object.
+    ///
+    /// ### Arguments:
+    /// * 'sim_obj' - The simulation object
+    /// * 'solar_obj_index' - The index of the solar body
+    ///
+    /// ### Return
+    ///     A ndarray containing the distance between the simulation object and the solar body in
+    ///     Cartesian Distance: (X, Y, Z)
+    ///
+    pub fn distance_to(&self, sim_obj: SimobjT, solar_obj_index: usize)
+        -> Option<(ndarray::Array1<f64>)>
+    {
+        if solar_obj_index >= self.bodies.len(){
+            return None;
+        }
+
+        // TODO
+        unimplemented!();
+    }
+
 
     pub fn update(&mut self) {
         let new_time = self.start_time + Duration::seconds(self.sim_time_s as i64);
@@ -182,6 +171,10 @@ impl Environment {
         1.15741e-5f32 * (*datetime_obj - origin_dt).num_seconds() as f32
     }
 
+    pub fn get_solar_objects(&self) -> &Vec<PlanetBody>{
+        self.bodies.as_ref()
+    }
+
     /// Creates the initial vector of solar system objects.
     /// 0 - Sun, 1 - Earth, 2 - Moon
     ///
@@ -196,8 +189,8 @@ impl Environment {
         let day = Environment::datetime_to_days(&start_time);
 
         let mut solar_bodies: Vec<PlanetBody> = Vec::new();
-        let earth = Box::new(make_earth(day));
 
+        solar_bodies.push(Box::new(make_earth(day)));
         solar_bodies.push(Box::new(make_sun()));
         solar_bodies.push(Box::new(make_moon(day)));
 
@@ -206,7 +199,6 @@ impl Environment {
             last_day_update_s: 0.0,
             start_time,
             sim_time_s: 0f64,
-            centric: earth,
             bodies: solar_bodies,
         }
     }
