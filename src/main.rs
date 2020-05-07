@@ -8,11 +8,11 @@ mod macros;
 extern crate chrono;
 extern crate clap;
 extern crate csv;
+extern crate ndarray;
 extern crate serde;
 extern crate serde_json;
 extern crate strum;
 extern crate strum_macros;
-extern crate ndarray;
 
 mod bodies;
 mod input;
@@ -38,7 +38,7 @@ mod cli {
     /// Returns the result of user arguments passed over the cli
     pub fn check_cli() -> clap::ArgMatches<'static> {
         // Defines the input arguments from the cli
-        let matches = clap::App::new("Parallel Orbital Simulation Environment (POSE)")
+        clap::App::new("Parallel Orbital Simulation Environment (POSE)")
             .version("DEV0.1")
             .about("Simulation aimed to model the orbital environment around Earth for bodies at all magnitudes.")
             .args(&[
@@ -60,9 +60,7 @@ mod cli {
                     .takes_value(true)
                     .validator(numeric_validator)
             ])
-            .get_matches();
-
-        return matches;
+            .get_matches()
     }
 }
 

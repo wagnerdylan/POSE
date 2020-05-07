@@ -65,7 +65,7 @@ impl Perturbation {
 ///
 fn write_out_all_perturbations(
     perturbations: Vec<Perturbation>,
-    output_controller: &mut Box<dyn output::SimulationOutput>,
+    output_controller: &mut dyn output::SimulationOutput,
 ) {
     for perturbation in perturbations {
         output_controller.write_out_perturbation(perturbation.into_output_form());
@@ -73,15 +73,15 @@ fn write_out_all_perturbations(
 }
 
 fn write_out_all_object_parameters(
-    _sim_objects: &Vec<bodies::SimobjT>,
-    _output_controller: &mut Box<dyn output::SimulationOutput>,
+    _sim_objects: &[bodies::SimobjT],
+    _output_controller: &mut dyn output::SimulationOutput,
 ) {
     unimplemented!();
 }
 
 fn write_out_all_solar_objects(
     env: &bodies::Environment,
-    output_controller: &mut Box<dyn output::SimulationOutput>,
+    output_controller: &mut dyn output::SimulationOutput,
 ) {
     for solar_object in env.get_solar_objects() {
         output_controller.write_out_solar_object(solar_object.to_output_form(env.sim_time_s));
@@ -94,7 +94,7 @@ fn l2_norm(x: ndarray::ArrayView1<f64>) -> f64 {
 
 fn normalize(mut x: ndarray::Array1<f64>) -> ndarray::Array1<f64> {
     let norm = l2_norm(x.view());
-    x.mapv_inplace(|e| e/norm);
+    x.mapv_inplace(|e| e / norm);
     x
 }
 
@@ -130,7 +130,6 @@ mod cowell_perturb {
         unimplemented!();
     }
 
-
     /// Calculate perturbations due to solar system objects.
     ///
     /// ### Parameters
@@ -147,11 +146,11 @@ mod cowell_perturb {
         env: &bodies::Environment,
         _do_return_peturb: bool,
     ) -> (PerturbationDelta, Option<Vec<Perturbation>>) {
-
         // TODO function which uses vector form of Newton's law of universal gravitation
-        fn newton_gravitation(sim_obj: &bodies::SimobjT, env: &bodies::Environment)
-            -> ndarray::Array1<f64>
-        {
+        fn newton_gravitation(
+            sim_obj: &bodies::SimobjT,
+            env: &bodies::Environment,
+        ) -> ndarray::Array1<f64> {
             unimplemented!();
             // TODO Calculate L2 Norm from sim_obj to env centric
             // TODO Calculate unit vector for perturbation
@@ -172,10 +171,9 @@ pub fn simulate(
     sim_params: SimulationParameters,
 ) {
     loop {
-
         // Update solar objs
         if env.sim_time_s > env.last_day_update_s + sim_params.sim_solar_step as f64 {
-            write_out_all_solar_objects(&env, &mut output_controller);
+            write_out_all_solar_objects(&env, output_controller.as_mut());
             env.update();
         }
 

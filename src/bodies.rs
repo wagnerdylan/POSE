@@ -1,7 +1,6 @@
 use crate::output;
 use chrono::{DateTime, Duration, TimeZone, Utc};
 use serde::{Deserialize, Serialize};
-use std::ptr;
 use strum_macros::Display;
 
 const METERS_PER_ASTRONOMICAL_UNIT: f64 = 1.4959787e+11;
@@ -42,7 +41,7 @@ pub struct Spacecraft {
 
 impl Simobj for Spacecraft {
     fn type_of(&self) -> String {
-        return String::from("Spacecraft");
+        String::from("Spacecraft")
     }
     fn get_id(&self) -> u32 {
         self.id
@@ -78,7 +77,7 @@ pub struct Debris {
 
 impl Simobj for Debris {
     fn type_of(&self) -> String {
-        return String::from("Debris");
+        String::from("Debris")
     }
 
     fn get_id(&self) -> u32 {
@@ -109,7 +108,6 @@ pub struct Environment {
 }
 
 impl Environment {
-
     /// Updates the solar system objects within the environment.
     ///
     /// ### Argument
@@ -137,10 +135,11 @@ impl Environment {
     ///     A ndarray containing the distance between the simulation object and the solar body in
     ///     Cartesian Distance: (X, Y, Z)
     ///
-    pub fn distance_to(&self, sim_obj: SimobjT, solar_obj_index: usize)
-        -> Option<(ndarray::Array1::<f64>)>
-    {
-
+    pub fn distance_to(
+        &self,
+        sim_obj: SimobjT,
+        solar_obj_index: usize,
+    ) -> Option<ndarray::Array1<f64>> {
         let current_solar_obj = match self.bodies.get(solar_obj_index) {
             Some(obj) => obj,
             None => return None,
@@ -150,33 +149,29 @@ impl Environment {
         let (sim_x, sim_y, sim_z) = sim_obj.get_coords();
 
         // If the object is the centric or not helio centric
-        let (x, y, z) =
-            if solar_obj_index == 0 || !current_solar_obj.get_coords().heliocentric {
-
-                (
-                    solar_obj_coords.xh - sim_x,
-                    solar_obj_coords.yh - sim_y,
-                    solar_obj_coords.zh - sim_z
-                )
-
-            } else {
-                let centric_solar_obj = match self.bodies.get(0) {
-                    Some(obj) => obj,
-                    None => return None,
-                };
-
-                let centric_obj_coords = centric_solar_obj.get_coords();
-
-                (
-                    solar_obj_coords.xh - (centric_obj_coords.xh + sim_x),
-                    solar_obj_coords.yh - (centric_obj_coords.yh + sim_y),
-                    solar_obj_coords.zh - (centric_obj_coords.zh + sim_z)
-                )
+        let (x, y, z) = if solar_obj_index == 0 || !current_solar_obj.get_coords().heliocentric {
+            (
+                solar_obj_coords.xh - sim_x,
+                solar_obj_coords.yh - sim_y,
+                solar_obj_coords.zh - sim_z,
+            )
+        } else {
+            let centric_solar_obj = match self.bodies.get(0) {
+                Some(obj) => obj,
+                None => return None,
             };
+
+            let centric_obj_coords = centric_solar_obj.get_coords();
+
+            (
+                solar_obj_coords.xh - (centric_obj_coords.xh + sim_x),
+                solar_obj_coords.yh - (centric_obj_coords.yh + sim_y),
+                solar_obj_coords.zh - (centric_obj_coords.zh + sim_z),
+            )
+        };
 
         Some(ndarray::arr1::<f64>(&[x, y, z]))
     }
-
 
     pub fn update(&mut self) {
         let new_time = self.start_time + Duration::seconds(self.sim_time_s as i64);
@@ -200,7 +195,7 @@ impl Environment {
         (1.15741e-5f64 * (*datetime_obj - origin_dt).num_seconds() as f64) as f64
     }
 
-    pub fn get_solar_objects(&self) -> &Vec<PlanetBody>{
+    pub fn get_solar_objects(&self) -> &Vec<PlanetBody> {
         self.bodies.as_ref()
     }
 
@@ -474,9 +469,7 @@ impl KeplerModel for PlanetPS {
         yh *= AU_METER;
         zh *= AU_METER;
 
-        let coords = self.perturb(xh as f64, yh as f64, zh as f64, day);
-
-        coords
+        self.perturb(xh as f64, yh as f64, zh as f64, day)
     }
 
     /// Calculates additional perturbations on top of main heliocentric position calculation.
@@ -567,14 +560,12 @@ impl KeplerModel for Earth {
         y *= AU_METER;
 
         // the Earth's center is always on the plane of the ecliptic (z=0), by definition!
-        let coords = CartesianCoords {
+        CartesianCoords {
             xh: x,
             yh: y,
             zh: 0f64,
             heliocentric: true,
-        };
-
-        coords
+        }
     }
 
     fn get_coords(&self) -> &CartesianCoords {
@@ -625,7 +616,7 @@ fn make_sun() -> Sun {
         },
     };
 
-    let sun_body = Sun {
+    Sun {
         solartype: solar_trait,
         coords: CartesianCoords {
             xh: 0f64,
@@ -633,9 +624,7 @@ fn make_sun() -> Sun {
             zh: 0f64,
             heliocentric: true,
         },
-    };
-
-    sun_body
+    }
 }
 
 /// Create the earth.
