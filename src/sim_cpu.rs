@@ -4,6 +4,9 @@ use input::SimulationParameters;
 use std::string::ToString;
 use strum_macros::Display;
 
+// Gravitational constant 6.674×10−11
+const G: f64 = 6.674e-11;
+
 pub struct PerturbationDelta {
     id: u32,
     sim_time: f64,
@@ -92,8 +95,11 @@ fn l2_norm(x: ndarray::ArrayView1<f64>) -> f64 {
     x.dot(&x).sqrt()
 }
 
-fn normalize(mut x: ndarray::Array1<f64>) -> ndarray::Array1<f64> {
-    let norm = l2_norm(x.view());
+fn normalize(mut x: ndarray::Array1<f64>, l2_norm_precalc: Option<f64>) -> ndarray::Array1<f64> {
+    let norm = match l2_norm_precalc {
+        Some(val) => val,
+        None => l2_norm(x.view())
+    };
     x.mapv_inplace(|e| e / norm);
     x
 }
@@ -102,6 +108,9 @@ fn normalize(mut x: ndarray::Array1<f64>) -> ndarray::Array1<f64> {
 mod cowell_perturb {
     use crate::bodies;
     use crate::sim_cpu::{Perturbation, PerturbationDelta};
+    use sim_cpu::{l2_norm, normalize, G};
+    use bodies::Solarobj::Sun;
+    use ndarray::Array1;
 
     /// Apply all perturbations handled by POSE. This includes:
     /// * 'Solar Body Earth'
@@ -146,18 +155,46 @@ mod cowell_perturb {
         env: &bodies::Environment,
         _do_return_peturb: bool,
     ) -> (PerturbationDelta, Option<Vec<Perturbation>>) {
-        // TODO function which uses vector form of Newton's law of universal gravitation
-        fn newton_gravitation(
+
+        fn newton_gravitational_field(
             sim_obj: &bodies::SimobjT,
+            planet_idx: usize,
             env: &bodies::Environment,
         ) -> ndarray::Array1<f64> {
-            unimplemented!();
-            // TODO Calculate L2 Norm from sim_obj to env centric
-            // TODO Calculate unit vector for perturbation
-            // TODO Calculate force using Newton's law of universal gravitation
-            // TODO Return the force vector
+            // Calculate L2 Norm from sim_obj to planet at index planet_index
+            let cartesian_dist = env.distance_to(sim_obj, planet_idx)
+                .expect("Expected in range environment access, invalid index provided.");
+            let l2_dist = l2_norm(cartesian_dist.view());
+            // Calculate unit vector for perturbation
+            let unit_vector = normalize(cartesian_dist, Some(l2_dist));
+            // Calculate force using Newton's law of universal gravitation
+            let planet_mass_kg = env.get_solar_objects()
+                .get(planet_idx)
+                .expect("Expected in range environment access, invalid index provided.")
+                .get_solar_object()
+                .get_mass_kg();
+
+            unit_vector * (-G * (planet_mass_kg/l2_dist.powi(2)))
         }
 
+        let mut perturbation_vec = Vec::<Array1<f64>>::with_capacity(env.get_solar_objects().len());
+        for planet_idx in 0..env.get_solar_objects().len() {
+            let mut grav_accel = newton_gravitational_field(sim_obj, planet_idx, env);
+            let planet = env.get_solar_objects()
+                .get(planet_idx)
+                .expect("Expected in range environment access, invalid index provided")
+                .get_solar_object();
+
+            if let Sun(_) = planet {
+                if planet_idx != 0 {
+                    // subtract centric from current
+                    grav_accel = grav_accel - perturbation_vec.get(0)
+                        .expect("Perturbation vector is empty.");
+                }
+            }
+
+            perturbation_vec.push(grav_accel);
+        }
         unimplemented!();
     }
 }

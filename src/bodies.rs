@@ -137,7 +137,7 @@ impl Environment {
     ///
     pub fn distance_to(
         &self,
-        sim_obj: SimobjT,
+        sim_obj: &SimobjT,
         solar_obj_index: usize,
     ) -> Option<ndarray::Array1<f64>> {
         let current_solar_obj = match self.bodies.get(solar_obj_index) {
@@ -228,7 +228,7 @@ impl Environment {
     }
 }
 
-#[derive(Display, Debug)]
+#[derive(Display)]
 pub enum Solarobj {
     #[strum(serialize = "sun")]
     Sun { attr: SolarAttr },
@@ -238,13 +238,23 @@ pub enum Solarobj {
     Moon { attr: SolarAttr },
 }
 
-#[derive(Debug)]
+
 pub struct SolarAttr {
     radius: f64, // meters
     mass: f64,   // kg
 }
 
-#[derive(Debug)]
+impl Solarobj {
+    pub fn get_mass_kg(&self) -> f64 {
+        match self {
+            Solarobj::Sun { attr } => attr.mass,
+            Solarobj::Earth { attr } => attr.mass,
+            Solarobj::Moon { attr } => attr.mass,
+        }
+    }
+}
+
+
 pub struct PlanetPS {
     // See  http://www.stjarnhimlen.se/comp/ppcomp.html#4
     solartype: Solarobj, // Type enum of the solar obj
@@ -267,19 +277,16 @@ pub struct PlanetPS {
     mag_nonlinear_exponent: f64,
 }
 
-#[derive(Debug)]
 pub struct Earth {
     solartype: Solarobj,
     coords: CartesianCoords,
 }
 
-#[derive(Debug)]
 pub struct Sun {
     solartype: Solarobj,
     coords: CartesianCoords,
 }
 
-#[derive(Debug)]
 pub struct CartesianCoords {
     heliocentric: bool, // False if geocentric
     pub xh: f64,        // X location in meters
