@@ -21,15 +21,14 @@ pub struct PerturbationOut {
 
 #[derive(Debug, Serialize)]
 pub struct SimulationObjectParameters {
-    pub id: u32,          // ID of the object
-    pub sim_time: f64,    // Simulation time
-    pub obj_type: String, // Type of Object
-    pub x_coord: f32,     // Coordinate of object in the x axis
-    pub y_coord: f32,     // Coordinate of object in the y axis
-    pub z_coord: f32,     // Coordinate of object in the z axis
-    pub x_velocity: f32,  // Velocity of object in the x axis
-    pub y_velocity: f32,  // Velocity of object in the y axis
-    pub z_velocity: f32,  // Velocity of object in the z axis
+    pub id: u32,         // ID of the object
+    pub sim_time: f64,   // Simulation time
+    pub x_coord: f64,    // Coordinate of object in the x axis
+    pub y_coord: f64,    // Coordinate of object in the y axis
+    pub z_coord: f64,    // Coordinate of object in the z axis
+    pub x_velocity: f64, // Velocity of object in the x axis
+    pub y_velocity: f64, // Velocity of object in the y axis
+    pub z_velocity: f64, // Velocity of object in the z axis
 }
 
 pub trait SimulationOutput {

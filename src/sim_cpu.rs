@@ -77,10 +77,13 @@ fn write_out_all_perturbations(
 }
 
 fn write_out_all_object_parameters(
-    _sim_objects: &[bodies::SimobjT],
-    _output_controller: &mut dyn output::SimulationOutput,
+    env: &bodies::Environment,
+    sim_objects: &[bodies::SimobjT],
+    output_controller: &mut dyn output::SimulationOutput,
 ) {
-    unimplemented!();
+    for sim_obj in sim_objects {
+        output_controller.write_out_object_parameters(sim_obj.to_output_form(env.sim_time_s));
+    }
 }
 
 fn write_out_all_solar_objects(
@@ -130,9 +133,9 @@ mod cowell_perturb {
     pub fn apply_perturbations(
         sim_obj: &mut dyn bodies::Simobj,
         env: &bodies::Environment,
-        do_return_peturb: bool,
+        do_return_perturb: bool,
     ) -> Option<Vec<Perturbation>> {
-        let gravity_perturbations = calc_planet_perturb(sim_obj, env, do_return_peturb);
+        let gravity_perturbations = calc_planet_perturb(sim_obj, env, do_return_perturb);
         // TODO collect a vector of all perturbations
         // TODO sum perturbations
         // TODO apply sum of perturbations to sim_obj
@@ -262,7 +265,7 @@ pub fn simulate(
             }
         }
 
-        write_out_all_object_parameters(&sim_bodies, output_controller.as_mut());
+        write_out_all_object_parameters(&env, &sim_bodies, output_controller.as_mut());
 
         // Move forward simulation by step
         env.sim_time_s += sim_params.sim_time_step as f64;

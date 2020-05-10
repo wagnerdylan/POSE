@@ -25,6 +25,23 @@ pub trait Simobj {
     fn id_mut(&mut self) -> &mut u32;
     fn get_coords(&self) -> (f64, f64, f64);
     fn set_coords(&mut self, x: f64, y: f64, z: f64);
+    fn get_velocity(&self) -> (f64, f64, f64);
+
+    fn to_output_form(&self, sim_time: f64) -> output::SimulationObjectParameters {
+        let (x_coord, y_coord, z_coord) = self.get_coords();
+        let (x_velocity, y_velocity, z_velocity) = self.get_velocity();
+
+        output::SimulationObjectParameters {
+            id: self.get_id(),
+            sim_time,
+            x_coord,
+            y_coord,
+            z_coord,
+            x_velocity,
+            y_velocity,
+            z_velocity,
+        }
+    }
 }
 
 #[derive(Serialize, Deserialize)]
@@ -43,6 +60,7 @@ impl Simobj for Spacecraft {
     fn type_of(&self) -> String {
         String::from("Spacecraft")
     }
+
     fn get_id(&self) -> u32 {
         self.id
     }
@@ -59,6 +77,10 @@ impl Simobj for Spacecraft {
         self.x_dis = x;
         self.y_dis = y;
         self.z_dis = z;
+    }
+
+    fn get_velocity(&self) -> (f64, f64, f64) {
+        (self.x_vel, self.y_vel, self.z_vel)
     }
 }
 
@@ -96,6 +118,10 @@ impl Simobj for Debris {
         self.x_dis = x;
         self.y_dis = y;
         self.z_dis = z;
+    }
+
+    fn get_velocity(&self) -> (f64, f64, f64) {
+        (self.x_vel, self.y_vel, self.z_vel)
     }
 }
 
