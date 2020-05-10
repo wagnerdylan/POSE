@@ -14,9 +14,9 @@ pub struct PerturbationOut {
     pub id: u32,             // ID of the object perturbation was applied to or calculated for
     pub sim_time: f64,       // Simulation time
     pub petrub_type: String, // Type of perturbation
-    pub acceleration_x_mpss: f32, // Acceleration placed on object by perturbing force in x axis
-    pub acceleration_y_mpss: f32, // Acceleration placed on object by perturbing force in y axis
-    pub acceleration_z_mpss: f32, // Acceleration placed on object by perturbing force in z axis
+    pub acceleration_x_mpss: f64, // Acceleration placed on object by perturbing force in x axis
+    pub acceleration_y_mpss: f64, // Acceleration placed on object by perturbing force in y axis
+    pub acceleration_z_mpss: f64, // Acceleration placed on object by perturbing force in z axis
 }
 
 #[derive(Debug, Serialize)]

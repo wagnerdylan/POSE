@@ -137,7 +137,7 @@ impl Environment {
     ///
     pub fn distance_to(
         &self,
-        sim_obj: &SimobjT,
+        sim_obj: &dyn Simobj,
         solar_obj_index: usize,
     ) -> Option<ndarray::Array1<f64>> {
         let current_solar_obj = match self.bodies.get(solar_obj_index) {
@@ -149,7 +149,9 @@ impl Environment {
         let (sim_x, sim_y, sim_z) = sim_obj.get_coords();
 
         // If the object is the centric or not helio centric
-        let (x, y, z) = if solar_obj_index == 0 || !current_solar_obj.get_coords().heliocentric {
+        let (x, y, z) = if solar_obj_index == 0 {
+            (sim_x, sim_y, sim_z)
+        } else if !current_solar_obj.get_coords().heliocentric {
             (
                 solar_obj_coords.xh - sim_x,
                 solar_obj_coords.yh - sim_y,
@@ -228,7 +230,7 @@ impl Environment {
     }
 }
 
-#[derive(Display)]
+#[derive(Display, Clone)]
 pub enum Solarobj {
     #[strum(serialize = "sun")]
     Sun { attr: SolarAttr },
@@ -238,7 +240,7 @@ pub enum Solarobj {
     Moon { attr: SolarAttr },
 }
 
-
+#[derive(Clone)]
 pub struct SolarAttr {
     radius: f64, // meters
     mass: f64,   // kg
@@ -253,7 +255,6 @@ impl Solarobj {
         }
     }
 }
-
 
 pub struct PlanetPS {
     // See  http://www.stjarnhimlen.se/comp/ppcomp.html#4
