@@ -30,6 +30,8 @@ pub trait Simobj {
     fn get_velocity(&self) -> (f64, f64, f64);
     fn get_velocity_as_ndarray(&self) -> ndarray::Array1<f64>;
     fn set_velocity(&mut self, x: f64, y: f64, z: f64);
+    fn get_drag_area(&self) -> f64;
+    fn get_mass(&self) -> f64;
 
     fn to_output_form(&self, sim_time: f64) -> output::SimulationObjectParameters {
         let (x_coord, y_coord, z_coord) = self.get_coords();
@@ -57,7 +59,9 @@ pub struct Spacecraft {
     z_dis: f64,
     x_vel: f64,
     y_vel: f64,
-    z_vel: f64, // Add more
+    z_vel: f64,
+    drag_area: f64,
+    mass: f64,
 }
 
 impl Simobj for Spacecraft {
@@ -100,6 +104,14 @@ impl Simobj for Spacecraft {
         self.y_vel = y;
         self.z_vel = z;
     }
+
+    fn get_drag_area(&self) -> f64 {
+        self.drag_area
+    }
+
+    fn get_mass(&self) -> f64 {
+        self.mass
+    }
 }
 
 /// Struct for holding attributes relating to debris
@@ -112,7 +124,9 @@ pub struct Debris {
     z_dis: f64,
     x_vel: f64,
     y_vel: f64,
-    z_vel: f64, // Add more
+    z_vel: f64,
+    drag_area: f64,
+    mass: f64,
 }
 
 impl Simobj for Debris {
@@ -154,6 +168,14 @@ impl Simobj for Debris {
         self.x_vel = x;
         self.y_vel = y;
         self.z_vel = z;
+    }
+
+    fn get_drag_area(&self) -> f64 {
+        self.drag_area
+    }
+
+    fn get_mass(&self) -> f64 {
+        self.mass
     }
 }
 

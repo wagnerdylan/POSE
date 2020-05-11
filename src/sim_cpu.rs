@@ -178,6 +178,14 @@ mod cowell_perturb {
         Some(output_vec)
     }
 
+    fn calc_atmospheric_drag(
+        sim_obj: &dyn bodies::Simobj,
+        env: &bodies::Environment,
+        do_return_perturb: bool,
+    ) -> (PerturbationDelta, Perturbation) {
+        unimplemented!();
+    }
+
     /// Calculate perturbations due to solar system objects.
     ///
     /// ### Parameters
@@ -190,9 +198,9 @@ mod cowell_perturb {
     ///         (Total perturbation delta, individual perturbation deltas or none)
     ///
     fn calc_planet_perturb(
-        sim_obj: &mut dyn bodies::Simobj,
+        sim_obj: &dyn bodies::Simobj,
         env: &bodies::Environment,
-        do_return_peturb: bool,
+        do_return_perturb: bool,
     ) -> (PerturbationDelta, Option<Vec<Perturbation>>) {
         fn newton_gravitational_field(
             distance_vector: &ArrayView1<f64>,
@@ -274,7 +282,7 @@ mod cowell_perturb {
         };
 
         // If per object perturbation calculations are not needed return here
-        if !do_return_peturb {
+        if !do_return_perturb {
             return (sum_perturb, None);
         }
 
@@ -320,7 +328,7 @@ pub fn simulate(
                 sim_obj.as_mut(),
                 &env,
                 sim_params.sim_time_step as f64,
-                false,
+                true,
             ) {
                 write_out_all_perturbations(perturb, output_controller.as_mut());
             }
