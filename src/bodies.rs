@@ -1,5 +1,6 @@
 use crate::output;
 use chrono::{DateTime, Duration, TimeZone, Utc};
+use ndarray::{arr1, Array1, ArrayView1, OwnedRepr};
 use serde::{Deserialize, Serialize};
 use strum_macros::Display;
 
@@ -24,8 +25,11 @@ pub trait Simobj {
     fn get_id(&self) -> u32;
     fn id_mut(&mut self) -> &mut u32;
     fn get_coords(&self) -> (f64, f64, f64);
+    fn get_coords_as_ndarray(&self) -> ndarray::Array1<f64>;
     fn set_coords(&mut self, x: f64, y: f64, z: f64);
     fn get_velocity(&self) -> (f64, f64, f64);
+    fn get_velocity_as_ndarray(&self) -> ndarray::Array1<f64>;
+    fn set_velocity(&mut self, x: f64, y: f64, z: f64);
 
     fn to_output_form(&self, sim_time: f64) -> output::SimulationObjectParameters {
         let (x_coord, y_coord, z_coord) = self.get_coords();
@@ -73,6 +77,10 @@ impl Simobj for Spacecraft {
         (self.x_dis, self.y_dis, self.z_dis)
     }
 
+    fn get_coords_as_ndarray(&self) -> Array1<f64> {
+        arr1(&[self.x_dis, self.y_dis, self.z_dis])
+    }
+
     fn set_coords(&mut self, x: f64, y: f64, z: f64) {
         self.x_dis = x;
         self.y_dis = y;
@@ -81,6 +89,16 @@ impl Simobj for Spacecraft {
 
     fn get_velocity(&self) -> (f64, f64, f64) {
         (self.x_vel, self.y_vel, self.z_vel)
+    }
+
+    fn get_velocity_as_ndarray(&self) -> Array1<f64> {
+        arr1(&[self.x_vel, self.y_vel, self.z_vel])
+    }
+
+    fn set_velocity(&mut self, x: f64, y: f64, z: f64) {
+        self.x_vel = x;
+        self.y_vel = y;
+        self.z_vel = z;
     }
 }
 
@@ -114,6 +132,10 @@ impl Simobj for Debris {
         (self.x_dis, self.y_dis, self.z_dis)
     }
 
+    fn get_coords_as_ndarray(&self) -> Array1<f64> {
+        arr1(&[self.x_dis, self.y_dis, self.z_dis])
+    }
+
     fn set_coords(&mut self, x: f64, y: f64, z: f64) {
         self.x_dis = x;
         self.y_dis = y;
@@ -122,6 +144,16 @@ impl Simobj for Debris {
 
     fn get_velocity(&self) -> (f64, f64, f64) {
         (self.x_vel, self.y_vel, self.z_vel)
+    }
+
+    fn get_velocity_as_ndarray(&self) -> Array1<f64> {
+        arr1(&[self.x_vel, self.y_vel, self.z_vel])
+    }
+
+    fn set_velocity(&mut self, x: f64, y: f64, z: f64) {
+        self.x_vel = x;
+        self.y_vel = y;
+        self.z_vel = z;
     }
 }
 
@@ -190,7 +222,6 @@ impl Environment {
             };
 
             let centric_obj_coords = centric_solar_obj.get_coords();
-
             (
                 solar_obj_coords.xh - (centric_obj_coords.xh + sim_x),
                 solar_obj_coords.yh - (centric_obj_coords.yh + sim_y),

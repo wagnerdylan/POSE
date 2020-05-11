@@ -19,9 +19,7 @@ type_body <- args[3]
 plot_title <- args[4]
 
 data <- fread(filepath)
-data <- subset(data, name == get("type_body"))
-data <- data[, orbit_num := NA]
-
+data <- subset(data, id == get("type_body"))
 earth <- data.frame(x0=0, y0=0, r=6378137.0)
 
 p <- ggplot(data, aes(x_coord, y_coord, color=z_coord))

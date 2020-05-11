@@ -95,17 +95,16 @@ fn write_out_all_solar_objects(
     }
 }
 
-fn l2_norm(x: ndarray::ArrayView1<f64>) -> f64 {
-    x.dot(&x).sqrt()
+fn l2_norm(x: &ndarray::ArrayView1<f64>) -> f64 {
+    x.dot(x).sqrt()
 }
 
-fn normalize(mut x: ndarray::Array1<f64>, l2_norm_precalc: Option<f64>) -> ndarray::Array1<f64> {
+fn normalize(x: &ndarray::ArrayView1<f64>, l2_norm_precalc: Option<f64>) -> ndarray::Array1<f64> {
     let norm = match l2_norm_precalc {
         Some(val) => val,
-        None => l2_norm(x.view()),
+        None => l2_norm(x),
     };
-    x.mapv_inplace(|e| e / norm);
-    x
+    x.mapv(|e| e / norm)
 }
 
 /// Module used to apply perturbation calculations on individual bodies
@@ -113,7 +112,7 @@ mod cowell_perturb {
     use crate::bodies;
     use crate::sim_cpu::{Perturbation, PerturbationDelta};
     use bodies::Solarobj;
-    use ndarray::Array1;
+    use ndarray::{Array1, ArrayView1};
     use sim_cpu::{l2_norm, normalize, G};
 
     /// Apply all perturbations handled by POSE. This includes:
@@ -128,20 +127,55 @@ mod cowell_perturb {
     /// * 'do_return_peturb' - true if vector should be returned, false otherwise
     ///
     /// ### Return
-    ///     A vector of perturbation deltas in _do_return_peturb is true or none.
+    ///     A vector of perturbation deltas in do_return_peturb is true or none.
     ///
     pub fn apply_perturbations(
         sim_obj: &mut dyn bodies::Simobj,
         env: &bodies::Environment,
+        step_time_s: f64,
         do_return_perturb: bool,
     ) -> Option<Vec<Perturbation>> {
         let gravity_perturbations = calc_planet_perturb(sim_obj, env, do_return_perturb);
-        // TODO collect a vector of all perturbations
-        // TODO sum perturbations
-        // TODO apply sum of perturbations to sim_obj
-        // TODO emit vector of all perturbations
 
-        unimplemented!();
+        let perturbation_vec = vec![gravity_perturbations.0];
+        let combined_acceleration = {
+            let mut summation = ndarray::Array1::<f64>::zeros(3);
+            for element in perturbation_vec {
+                summation[0] += element.acceleration_x_mpss;
+                summation[1] += element.acceleration_y_mpss;
+                summation[2] += element.acceleration_z_mpss;
+            }
+            summation
+        };
+        let velocity_delta: Array1<f64> = combined_acceleration * step_time_s;
+        let updated_sim_obj_velocity = sim_obj.get_velocity_as_ndarray() + velocity_delta;
+
+        let position_delta = updated_sim_obj_velocity.clone() * step_time_s;
+        let updated_sim_obj_coords = sim_obj.get_coords_as_ndarray() + position_delta;
+
+        sim_obj.set_velocity(
+            updated_sim_obj_velocity[0],
+            updated_sim_obj_velocity[1],
+            updated_sim_obj_velocity[2],
+        );
+
+        sim_obj.set_coords(
+            updated_sim_obj_coords[0],
+            updated_sim_obj_coords[1],
+            updated_sim_obj_coords[2],
+        );
+
+        if !do_return_perturb {
+            return None;
+        }
+
+        let output_vec = {
+            // Upwrap here as this will contain a value at this stage
+            let mut result_vec = gravity_perturbations.1.unwrap();
+            result_vec
+        };
+
+        Some(output_vec)
     }
 
     /// Calculate perturbations due to solar system objects.
@@ -161,17 +195,13 @@ mod cowell_perturb {
         do_return_peturb: bool,
     ) -> (PerturbationDelta, Option<Vec<Perturbation>>) {
         fn newton_gravitational_field(
-            sim_obj: &dyn bodies::Simobj,
+            distance_vector: &ArrayView1<f64>,
             planet_idx: usize,
             env: &bodies::Environment,
         ) -> ndarray::Array1<f64> {
-            // Calculate L2 Norm from sim_obj to planet at index planet_index
-            let cartesian_dist = env
-                .distance_to(sim_obj, planet_idx)
-                .expect("Expected in range environment access, invalid index provided.");
-            let l2_dist = l2_norm(cartesian_dist.view());
+            let l2_dist = l2_norm(distance_vector);
             // Calculate unit vector for perturbation
-            let unit_vector = normalize(cartesian_dist, Some(l2_dist));
+            let unit_vector = normalize(distance_vector, Some(l2_dist));
             // Calculate force using Newton's law of universal gravitation
             let planet_mass_kg = env
                 .get_solar_objects()
@@ -186,20 +216,46 @@ mod cowell_perturb {
         let mut perturbation_vec = Vec::<Array1<f64>>::with_capacity(env.get_solar_objects().len());
         // Calculate perturbations for each planet object in the environment
         for planet_idx in 0..env.get_solar_objects().len() {
-            let mut grav_accel = newton_gravitational_field(sim_obj, planet_idx, env);
+            // Calculate L2 Norm from sim_obj to planet at index planet_index
+            let distance_vector = env
+                .distance_to(sim_obj, planet_idx)
+                .expect("Expected in range environment access, invalid index provided.");
+            // Calculate gravity field at position of sim object from planet body
+            let mut grav_accel =
+                newton_gravitational_field(&distance_vector.view(), planet_idx, env);
+
             let solar_obj = env
                 .get_solar_objects()
                 .get(planet_idx)
-                .expect("Expected in range environment access, invalid index provided")
-                .get_solar_object();
+                .expect("Expected in range environment access, invalid index provided");
 
-            // Special case to handle differential forces on sim object
-            if let Solarobj::Sun { attr: _ } = solar_obj {
+            // Special case to handle differential forces on sim object. This is done as
+            // simulation objects have positions relative to centric.
+            if let Solarobj::Sun { attr: _ } = solar_obj.get_solar_object() {
                 if planet_idx != 0 {
-                    // subtract centric from current
-                    grav_accel -= perturbation_vec
-                        .get(0)
-                        .expect("Perturbation vector is empty.");
+                    // Get distance from centric to sun as vector
+                    let centric_sun_dist_vector = {
+                        let centric_obj_coords = env
+                            .get_solar_objects()
+                            .get(0)
+                            .expect("Expected in range environment access, invalid index provided")
+                            .get_coords();
+                        let current_obj_coords = solar_obj.get_coords();
+                        ndarray::arr1(&[
+                            current_obj_coords.xh - centric_obj_coords.xh,
+                            current_obj_coords.yh - centric_obj_coords.yh,
+                            current_obj_coords.zh - centric_obj_coords.zh,
+                        ])
+                    };
+                    // Calculate gravity field at position of centric
+                    let centric_grav = newton_gravitational_field(
+                        &centric_sun_dist_vector.view(),
+                        planet_idx,
+                        env,
+                    );
+
+                    // Subtract centric from current
+                    grav_accel = grav_accel - centric_grav; // Grav accel on centric
                 }
             }
 
@@ -260,7 +316,12 @@ pub fn simulate(
         // Calculate and apply perturbations for every object
         // TODO parallelize this
         for sim_obj in sim_bodies.iter_mut() {
-            if let Some(perturb) = apply_perturbations(sim_obj.as_mut(), &env, true) {
+            if let Some(perturb) = apply_perturbations(
+                sim_obj.as_mut(),
+                &env,
+                sim_params.sim_time_step as f64,
+                false,
+            ) {
                 write_out_all_perturbations(perturb, output_controller.as_mut());
             }
         }
