@@ -18,6 +18,7 @@ mod bodies;
 mod input;
 mod output;
 mod sim_cpu;
+mod types;
 
 mod cli {
 

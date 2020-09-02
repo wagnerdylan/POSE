@@ -8,6 +8,5 @@
 .vscode
 .png
 .csv
-Cargo.lock
 test_output/*
 .idea
