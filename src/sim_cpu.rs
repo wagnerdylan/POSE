@@ -112,8 +112,8 @@ mod cowell_perturb {
     use crate::bodies;
     use crate::sim_cpu::{Perturbation, PerturbationDelta};
     use bodies::Solarobj;
-    use ndarray::{Array1, ArrayView1};
     use sim_cpu::{l2_norm, normalize, G};
+    use types::Array3d;
 
     /// Apply all perturbations handled by POSE. This includes:
     /// * 'Solar Body Earth'
@@ -139,11 +139,15 @@ mod cowell_perturb {
 
         let perturbation_vec = vec![gravity_perturbations.0];
         let combined_acceleration = {
-            let mut summation = ndarray::Array1::<f64>::zeros(3);
+            let mut summation = Array3d{
+                x: 0.0,
+                y: 0.0,
+                z: 0.0
+            };
             for element in perturbation_vec {
-                summation[0] += element.acceleration_x_mpss;
-                summation[1] += element.acceleration_y_mpss;
-                summation[2] += element.acceleration_z_mpss;
+                summation.x += element.acceleration_x_mpss;
+                summation.y += element.acceleration_y_mpss;
+                summation.z += element.acceleration_z_mpss;
             }
             summation
         };

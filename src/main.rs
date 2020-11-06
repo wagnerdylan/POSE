@@ -8,7 +8,6 @@ mod macros;
 extern crate chrono;
 extern crate clap;
 extern crate csv;
-extern crate ndarray;
 extern crate serde;
 extern crate serde_json;
 extern crate strum;
