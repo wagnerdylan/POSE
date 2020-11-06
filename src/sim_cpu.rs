@@ -217,7 +217,7 @@ mod cowell_perturb {
             distance_vector: &ArrayView1<f64>,
             planet_idx: usize,
             env: &bodies::Environment,
-        ) -> ndarray::Array1<f64> {
+        ) -> Array3d {
             let l2_dist = l2_norm(distance_vector);
             // Calculate unit vector for perturbation
             let unit_vector = normalize(distance_vector, Some(l2_dist));

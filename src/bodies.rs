@@ -214,7 +214,7 @@ impl Environment {
 
         // If the object is the centric or not helio centric
         if solar_obj_index == 0 {
-            return Some(sim_coords);
+            return Some(sim_coords.clone());
         }
 
         let dist_array = if !current_solar_obj.get_coords().heliocentric {
