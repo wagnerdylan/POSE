@@ -2,8 +2,8 @@
 //! POSE - Parallel Orbital Simulation Environment
 //! TODO - Add more doc
 
-#[macro_use]
-mod macros;
+#[macro_use] mod macros;
+#[macro_use] extern crate impl_ops;
 
 extern crate chrono;
 extern crate clap;

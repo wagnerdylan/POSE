@@ -13,50 +13,34 @@ impl Array3d {
     }
 }
 
-impl ops::Add<Array3d> for Array3d {
-    type Output = Array3d;
-
-    fn add(self, rhs: Self) -> Self::Output {
-        Array3d {
-            x: self.x + rhs.x,
-            y: self.y + rhs.y,
-            z: self.z + rhs.z,
-        }
+impl_op_ex!(+ |a: &Array3d, b: &Array3d| -> Array3d {
+    Array3d {
+        x: a.x + b.x,
+        y: a.y + b.y,
+        z: a.z + b.z,
     }
-}
+});
 
-impl ops::Add<f64> for Array3d {
-    type Output = Array3d;
-
-    fn add(self, rhs: f64) -> Self::Output {
-        Array3d {
-            x: self.x + rhs,
-            y: self.y + rhs,
-            z: self.z + rhs,
-        }
+impl_op_ex_commutative!(+ |a: &Array3d, b: &f64| -> Array3d {
+    Array3d {
+        x: a.x + b,
+        y: a.y + b,
+        z: a.z + b,
     }
-}
+});
 
-impl ops::Mul<Array3d> for Array3d {
-    type Output = Array3d;
-
-    fn mul(self, rhs: Array3d) -> Self::Output {
-        Array3d {
-            x: self.x * rhs.x,
-            y: self.y * rhs.y,
-            z: self.z * rhs.z,
-        }
+impl_op_ex!(* |a: &Array3d, b: &Array3d| -> Array3d {
+    Array3d {
+        x: a.x * b.x,
+        y: a.y * b.y,
+        z: a.z * b.z,
     }
-}
+});
 
-impl ops::Mul<f64> for Array3d {
-    type Output = Array3d;
-
-    fn mul(self, rhs: f64) -> Self::Output {
-        Array3d {
-            x: self.x * rhs,
-            y: self.y * rhs,
-            z: self.z * rhs,
-        }
+impl_op_ex_commutative!(* |a: &Array3d, b: &f64| -> Array3d {
+    Array3d {
+        x: a.x * b,
+        y: a.y * b,
+        z: a.z * b,
     }
-}
+});

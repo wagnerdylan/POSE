@@ -77,10 +77,18 @@ impl Simobj for Spacecraft {
     }
 
 
+    fn get_ref_coords(&self) -> &Array3d {
+        unimplemented!()
+    }
+
     fn set_coords(&mut self, value: Array3d) {
         self.x_dis = value.x;
         self.y_dis = value.y;
         self.z_dis = value.z;
+    }
+
+    fn get_ref_velocity(&self) -> &Array3d {
+        unimplemented!()
     }
 
     fn set_velocity(&mut self, value: Array3d) {
@@ -95,14 +103,6 @@ impl Simobj for Spacecraft {
 
     fn get_mass(&self) -> f64 {
         self.mass
-    }
-
-    fn get_ref_coords(&self) -> &Array3d {
-        unimplemented!()
-    }
-
-    fn get_ref_velocity(&self) -> &Array3d {
-        unimplemented!()
     }
 }
 
@@ -134,10 +134,18 @@ impl Simobj for Debris {
         &mut self.id
     }
 
+    fn get_ref_coords(&self) -> &Array3d {
+        unimplemented!()
+    }
+
     fn set_coords(&mut self, value: Array3d) {
         self.x_dis = value.x;
         self.y_dis = value.y;
         self.z_dis = value.z;
+    }
+
+    fn get_ref_velocity(&self) -> &Array3d {
+        unimplemented!()
     }
 
     fn set_velocity(&mut self, value: Array3d) {
@@ -152,14 +160,6 @@ impl Simobj for Debris {
 
     fn get_mass(&self) -> f64 {
         self.mass
-    }
-
-    fn get_ref_coords(&self) -> &Array3d {
-        unimplemented!()
-    }
-
-    fn get_ref_velocity(&self) -> &Array3d {
-        unimplemented!()
     }
 }
 

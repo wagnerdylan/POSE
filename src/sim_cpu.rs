@@ -121,6 +121,7 @@ mod cowell_perturb {
     use bodies::Solarobj;
     use sim_cpu::{l2_norm, normalize, G};
     use types::Array3d;
+    use serde_json::value::Value::Array;
 
     /// Apply all perturbations handled by POSE. This includes:
     /// * 'Solar Body Earth'
@@ -158,22 +159,18 @@ mod cowell_perturb {
             }
             summation
         };
-        let velocity_delta: Array1<f64> = combined_acceleration * step_time_s;
-        let updated_sim_obj_velocity = sim_obj.get_velocity_as_ndarray() + velocity_delta;
+        let velocity_delta = combined_acceleration * step_time_s;
+        let updated_sim_obj_velocity = velocity_delta + sim_obj.get_ref_velocity();
 
         let position_delta = updated_sim_obj_velocity.clone() * step_time_s;
-        let updated_sim_obj_coords = sim_obj.get_coords_as_ndarray() + position_delta;
+        let updated_sim_obj_coords = position_delta + sim_obj.get_ref_coords();
 
         sim_obj.set_velocity(
-            updated_sim_obj_velocity[0],
-            updated_sim_obj_velocity[1],
-            updated_sim_obj_velocity[2],
+            updated_sim_obj_velocity.clone()
         );
 
         sim_obj.set_coords(
-            updated_sim_obj_coords[0],
-            updated_sim_obj_coords[1],
-            updated_sim_obj_coords[2],
+            updated_sim_obj_coords.clone()
         );
 
         if !do_return_perturb {
@@ -214,7 +211,7 @@ mod cowell_perturb {
         do_return_perturb: bool,
     ) -> (PerturbationDelta, Option<Vec<Perturbation>>) {
         fn newton_gravitational_field(
-            distance_vector: &ArrayView1<f64>,
+            distance_vector: &Array3d,
             planet_idx: usize,
             env: &bodies::Environment,
         ) -> Array3d {
@@ -232,7 +229,7 @@ mod cowell_perturb {
             unit_vector * (-G * (planet_mass_kg / l2_dist.powi(2)))
         }
 
-        let mut perturbation_vec = Vec::<Array1<f64>>::with_capacity(env.get_solar_objects().len());
+        let mut perturbation_vec = Vec::<Array3d>::with_capacity(env.get_solar_objects().len());
         // Calculate perturbations for each planet object in the environment
         for planet_idx in 0..env.get_solar_objects().len() {
             // Calculate L2 Norm from sim_obj to planet at index planet_index
@@ -260,11 +257,11 @@ mod cowell_perturb {
                             .expect("Expected in range environment access, invalid index provided")
                             .get_coords();
                         let current_obj_coords = solar_obj.get_coords();
-                        ndarray::arr1(&[
-                            current_obj_coords.xh - centric_obj_coords.xh,
-                            current_obj_coords.yh - centric_obj_coords.yh,
-                            current_obj_coords.zh - centric_obj_coords.zh,
-                        ])
+                        Array3d{
+                            x: current_obj_coords.xh - centric_obj_coords.xh,
+                            y: current_obj_coords.yh - centric_obj_coords.yh,
+                            z: current_obj_coords.zh - centric_obj_coords.zh
+                        }
                     };
                     // Calculate gravity field at position of centric
                     let centric_grav = newton_gravitational_field(
