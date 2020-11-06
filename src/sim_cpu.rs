@@ -4,6 +4,8 @@ use input::SimulationParameters;
 use sim_cpu::cowell_perturb::apply_perturbations;
 use std::string::ToString;
 use strum_macros::Display;
+use types::Array3d;
+use serde_json::value::Value::Array;
 
 // Gravitational constant 6.674×10−11
 const G: f64 = 6.674e-11;
@@ -95,16 +97,21 @@ fn write_out_all_solar_objects(
     }
 }
 
-fn l2_norm(x: &ndarray::ArrayView1<f64>) -> f64 {
+fn l2_norm(x: &Array3d) -> f64 {
     x.dot(x).sqrt()
 }
 
-fn normalize(x: &ndarray::ArrayView1<f64>, l2_norm_precalc: Option<f64>) -> ndarray::Array1<f64> {
+fn normalize(x: &Array3d, l2_norm_precalc: Option<f64>) -> Array3d {
     let norm = match l2_norm_precalc {
         Some(val) => val,
         None => l2_norm(x),
     };
-    x.mapv(|e| e / norm)
+    
+    Array3d{
+        x: x.x / norm,
+        y: x.y / norm,
+        z: x.z / norm
+    }
 }
 
 /// Module used to apply perturbation calculations on individual bodies
