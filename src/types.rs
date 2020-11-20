@@ -29,6 +29,22 @@ impl_op_ex_commutative!(+ |a: &Array3d, b: &f64| -> Array3d {
     }
 });
 
+impl_op_ex!(- |a: &Array3d, b: &Array3d| -> Array3d {
+    Array3d {
+        x: a.x - b.x,
+        y: a.y - b.y,
+        z: a.z - b.z,
+    }
+});
+
+impl_op_ex!(- |a: &Array3d, b: &f64| -> Array3d {
+    Array3d {
+        x: a.x - b,
+        y: a.y - b,
+        z: a.z - b,
+    }
+});
+
 impl_op_ex!(* |a: &Array3d, b: &Array3d| -> Array3d {
     Array3d {
         x: a.x * b.x,

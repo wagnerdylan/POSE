@@ -5,7 +5,6 @@ use sim_cpu::cowell_perturb::apply_perturbations;
 use std::string::ToString;
 use strum_macros::Display;
 use types::Array3d;
-use serde_json::value::Value::Array;
 
 // Gravitational constant 6.674×10−11
 const G: f64 = 6.674e-11;
@@ -121,7 +120,6 @@ mod cowell_perturb {
     use bodies::Solarobj;
     use sim_cpu::{l2_norm, normalize, G};
     use types::Array3d;
-    use serde_json::value::Value::Array;
 
     /// Apply all perturbations handled by POSE. This includes:
     /// * 'Solar Body Earth'
@@ -238,7 +236,7 @@ mod cowell_perturb {
                 .expect("Expected in range environment access, invalid index provided.");
             // Calculate gravity field at position of sim object from planet body
             let mut grav_accel =
-                newton_gravitational_field(&distance_vector.view(), planet_idx, env);
+                newton_gravitational_field(&distance_vector, planet_idx, env);
 
             let solar_obj = env
                 .get_solar_objects()
@@ -265,7 +263,7 @@ mod cowell_perturb {
                     };
                     // Calculate gravity field at position of centric
                     let centric_grav = newton_gravitational_field(
-                        &centric_sun_dist_vector.view(),
+                        &centric_sun_dist_vector,
                         planet_idx,
                         env,
                     );
@@ -283,9 +281,9 @@ mod cowell_perturb {
             PerturbationDelta {
                 id: sim_obj.get_id(),
                 sim_time: env.sim_time_s,
-                acceleration_x_mpss: perturbation_vec.iter().map(|x| x[0]).sum(),
-                acceleration_y_mpss: perturbation_vec.iter().map(|x| x[1]).sum(),
-                acceleration_z_mpss: perturbation_vec.iter().map(|x| x[2]).sum(),
+                acceleration_x_mpss: perturbation_vec.iter().map(|x| x.x).sum(),
+                acceleration_y_mpss: perturbation_vec.iter().map(|x| x.y).sum(),
+                acceleration_z_mpss: perturbation_vec.iter().map(|x| x.z).sum(),
             }
         };
 
@@ -302,9 +300,9 @@ mod cowell_perturb {
                     PerturbationDelta {
                         id: sim_obj.get_id(),
                         sim_time: env.sim_time_s,
-                        acceleration_x_mpss: perturb[0],
-                        acceleration_y_mpss: perturb[1],
-                        acceleration_z_mpss: perturb[2],
+                        acceleration_x_mpss: perturb.x,
+                        acceleration_y_mpss: perturb.y,
+                        acceleration_z_mpss: perturb.z,
                     },
                 )
             })
