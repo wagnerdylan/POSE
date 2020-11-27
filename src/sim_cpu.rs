@@ -130,6 +130,7 @@ mod cowell_perturb {
     /// ### Parameters
     /// * 'sim_obj' - The object basis for calculation and apply
     /// * 'env' - The Simulation environment
+    /// * 'step_time_s' - Step time of the simulation in seconds
     /// * 'do_return_peturb' - true if vector should be returned, false otherwise
     ///
     /// ### Return
@@ -141,36 +142,37 @@ mod cowell_perturb {
         step_time_s: f64,
         do_return_perturb: bool,
     ) -> Option<Vec<Perturbation>> {
+
+        let mut net_acceleration = Array3d{
+            x: 0.0,
+            y: 0.0,
+            z: 0.0
+        };
+
+        // Calculate the pertubation forces for all planetary objects
         let gravity_perturbations = calc_planet_perturb(sim_obj, env, do_return_perturb);
 
-        let perturbation_vec = vec![gravity_perturbations.0];
-        let combined_acceleration = {
-            let mut summation = Array3d{
-                x: 0.0,
-                y: 0.0,
-                z: 0.0
-            };
-            for element in perturbation_vec {
-                summation.x += element.acceleration_x_mpss;
-                summation.y += element.acceleration_y_mpss;
-                summation.z += element.acceleration_z_mpss;
-            }
-            summation
-        };
-        let velocity_delta = combined_acceleration * step_time_s;
+        // TODO make the delta return a Array3d type
+        // Combine the perturbation deltas from all perturbating forces
+        net_acceleration.x += gravity_perturbations.0.acceleration_x_mpss;
+        net_acceleration.y += gravity_perturbations.0.acceleration_y_mpss;
+        net_acceleration.z += gravity_perturbations.0.acceleration_z_mpss;
+
+        // Calculate the velocity change from net acceleration
+        let velocity_delta = net_acceleration * step_time_s;
+        // Calculate new velocity for the given simulation object
         let updated_sim_obj_velocity = velocity_delta + sim_obj.get_ref_velocity();
 
+        // Calculate the position change from the updated velocity
         let position_delta = updated_sim_obj_velocity.clone() * step_time_s;
+        // Calculate the new position for the simulation object
         let updated_sim_obj_coords = position_delta + sim_obj.get_ref_coords();
 
-        sim_obj.set_velocity(
-            updated_sim_obj_velocity.clone()
-        );
+        // Update the new values within the simulation object
+        sim_obj.set_velocity(updated_sim_obj_velocity.clone());
+        sim_obj.set_coords(updated_sim_obj_coords.clone());
 
-        sim_obj.set_coords(
-            updated_sim_obj_coords.clone()
-        );
-
+        // If pertubation details are not needed, return
         if !do_return_perturb {
             return None;
         }
@@ -276,14 +278,17 @@ mod cowell_perturb {
             perturbation_vec.push(grav_accel);
         }
 
+        // Calculate the net acceleration on the sim object
+        let pertubation_sum: Array3d = perturbation_vec.iter().sum(); 
+
         // Calculate final perturbation
         let sum_perturb = {
             PerturbationDelta {
                 id: sim_obj.get_id(),
                 sim_time: env.sim_time_s,
-                acceleration_x_mpss: perturbation_vec.iter().map(|x| x.x).sum(),
-                acceleration_y_mpss: perturbation_vec.iter().map(|x| x.y).sum(),
-                acceleration_z_mpss: perturbation_vec.iter().map(|x| x.z).sum(),
+                acceleration_x_mpss: pertubation_sum.x,
+                acceleration_y_mpss: pertubation_sum.y,
+                acceleration_z_mpss: pertubation_sum.z,
             }
         };
 

@@ -1,4 +1,5 @@
 use std::ops;
+use std::iter::Sum;
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy)]
@@ -11,6 +12,17 @@ pub struct Array3d {
 impl Array3d {
     pub fn dot(&self, other: &Array3d) -> f64 {
         (self.x * other.x) + (self.y * other.y) + (self.z * other.z)
+    }
+}
+
+impl<'a> Sum<&'a Self> for Array3d {
+    fn sum<I>(iter: I) -> Self 
+    where I: Iterator<Item = &'a Self> { 
+        iter.fold(Self {x: 0.0, y: 0.0, z: 0.0}, |acc, x| Self {
+            x: acc.x + x.x,
+            y: acc.y + x.y,
+            z: acc.z + x.z
+        })
     }
 }
 
