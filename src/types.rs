@@ -1,6 +1,7 @@
 use std::ops;
+use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Serialize, Deserialize, Debug, Clone, Copy)]
 pub struct Array3d {
     pub x: f64,
     pub y: f64,

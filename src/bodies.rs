@@ -53,12 +53,8 @@ pub trait Simobj {
 pub struct Spacecraft {
     #[serde(skip_deserializing)]
     id: u32,
-    x_dis: f64,
-    y_dis: f64,
-    z_dis: f64,
-    x_vel: f64,
-    y_vel: f64,
-    z_vel: f64,
+    coords: Array3d,
+    velocity: Array3d,
     drag_area: f64,
     mass: f64,
 }
@@ -78,23 +74,19 @@ impl Simobj for Spacecraft {
 
 
     fn get_ref_coords(&self) -> &Array3d {
-        unimplemented!()
+        &self.coords
     }
 
     fn set_coords(&mut self, value: Array3d) {
-        self.x_dis = value.x;
-        self.y_dis = value.y;
-        self.z_dis = value.z;
+        self.coords = value;
     }
 
     fn get_ref_velocity(&self) -> &Array3d {
-        unimplemented!()
+        &self.velocity
     }
 
     fn set_velocity(&mut self, value: Array3d) {
-        self.x_vel = value.x;
-        self.y_vel = value.y;
-        self.z_vel = value.z;
+        self.velocity = value;
     }
 
     fn get_drag_area(&self) -> f64 {
@@ -111,12 +103,8 @@ impl Simobj for Spacecraft {
 pub struct Debris {
     #[serde(skip_deserializing)]
     id: u32,
-    x_dis: f64,
-    y_dis: f64,
-    z_dis: f64,
-    x_vel: f64,
-    y_vel: f64,
-    z_vel: f64,
+    coords: Array3d,
+    velocity: Array3d,
     drag_area: f64,
     mass: f64,
 }
@@ -134,24 +122,21 @@ impl Simobj for Debris {
         &mut self.id
     }
 
+
     fn get_ref_coords(&self) -> &Array3d {
-        unimplemented!()
+        &self.coords
     }
 
     fn set_coords(&mut self, value: Array3d) {
-        self.x_dis = value.x;
-        self.y_dis = value.y;
-        self.z_dis = value.z;
+        self.coords = value;
     }
 
     fn get_ref_velocity(&self) -> &Array3d {
-        unimplemented!()
+        &self.velocity
     }
 
     fn set_velocity(&mut self, value: Array3d) {
-        self.x_vel = value.x;
-        self.y_vel = value.y;
-        self.z_vel = value.z;
+        self.velocity = value;
     }
 
     fn get_drag_area(&self) -> f64 {

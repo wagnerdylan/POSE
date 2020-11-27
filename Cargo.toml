@@ -3,6 +3,7 @@ name = "pose"
 version = "0.1.0"
 authors = ["Dylan Wagner <drw6528@rit.edu>"]
 
+
 [dependencies]
 serde = { version = "*", features = ["derive"] }
 serde_json = "*"
@@ -12,3 +13,6 @@ strum = "*"
 strum_macros = "*"
 csv = "*"
 impl_ops = "*"
+
+[profile.release]
+lto = true
