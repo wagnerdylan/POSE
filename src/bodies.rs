@@ -93,6 +93,7 @@ pub struct Environment {
 }
 
 impl Environment {
+
     /// Updates the solar system objects within the environment.
     ///
     /// ### Argument
@@ -110,6 +111,10 @@ impl Environment {
     }
 
     /// Hard update on all solar objects within the simulation. 
+    /// 
+    /// ### Argument
+    /// 'sim_params" - Simulation parameters gathered at invocation time
+    ///
     fn update(&mut self, sim_params: &SimulationParameters) {  
 
         self.last_day_update_s = self.sim_time_s;
@@ -138,15 +143,44 @@ impl Environment {
 
     }
 
-    pub fn advance_simulation_envrionment(&self, sim_params: &SimulationParameters){
+    /// Advance the simulation by the simulation step time. This function will force a hard update on 
+    /// all solar objects within the simulation if current simulation time exceeds or is equal to future 
+    /// simulation time. In between hard environment updates, positions of all solar objects are linearly interpolated.
+    ///
+    /// ### Argument
+    /// 'sim_params" - Simulation parameters gathered at invocation time
+    ///
+    pub fn advance_simulation_environment(&mut self, sim_params: &SimulationParameters){
+
+        // Advance the simulation environment by configured simulation time step
+        self.sim_time_s += sim_params.sim_time_step as f64;
+        // Perform a hard update if advanced current simulation time would exceed future simulation time
+        if self.sim_time_s >= self.future_day_update_s {
+            self.update(sim_params);
+            // Exit out of function as hard update handled advance of simulation environment
+            return;
+        }
+
+        // Precise method, which guarantees v = v1 when t = 1.
+        let interp_method = |v0: &Array3d, v1: &Array3d, t: f64| -> Array3d {((1f64 - t) * v0) + (t * v1)};
+
         // Perform a linear interpolation from the current solar object coords to the future solar coords
-        // Store current solar object coords
-        // Set the current solar object coords to the interp value
-        // Take stored solar object coords and find delta to current solar object coords
-        // Add corrsponding solar object delta to each sim object
-        todo!()
+        let interp_point = (self.sim_time_s - self.last_day_update_s) / (self.future_day_update_s - self.last_day_update_s);
+
+        self.current_sun_coords = interp_method(&self.last_sun_coords,&self.sun.coords, interp_point);
+        self.current_earth_coords = interp_method(&self.last_earth_coords,&self.earth.coords, interp_point);
+        self.current_moon_coords = interp_method(&self.last_moon_coords,&self.moon.coords, interp_point);
+
     }
 
+    /// Calculate the absolute coordinates for the simulation object
+    ///
+    /// ### Arguments
+    /// * 'sim_obj' - The simulation object
+    ///
+    /// ### Return
+    /// The absolute coordinates for the input simulation object.
+    ///
     pub fn calculate_abs_coords(&self, sim_obj: &SimobjT) -> Array3d{
         match sim_obj.soi {
             Solarobj::Sun { attr: _, .. } => { self.current_sun_coords + sim_obj.coords }
@@ -202,6 +236,7 @@ impl Environment {
             current_moon_coords: moon_precalc.coords
         };
 
+        // This forces a hard update which calculates future locations of solar bodies
         env.update(sim_params);
 
         env
@@ -493,7 +528,7 @@ impl KeplerModel for PlanetPS {
     }
 
     fn distance_between_sim_object(&self, sim_obj: &SimobjT) -> Array3d {
-        &self.coords - &sim_obj.coords_abs
+        self.coords - sim_obj.coords_abs
     }
 }
 
@@ -568,7 +603,7 @@ impl KeplerModel for Earth {
     }
 
     fn distance_between_sim_object(&self, sim_obj: &SimobjT) -> Array3d {
-        &self.coords - &sim_obj.coords_abs
+        self.coords - sim_obj.coords_abs
     }
 }
 
@@ -594,7 +629,7 @@ impl KeplerModel for Sun {
     }
 
     fn distance_between_sim_object(&self, sim_obj: &SimobjT) -> Array3d {
-        &self.coords - &sim_obj.coords_abs
+        self.coords - sim_obj.coords_abs
     }
 }
 

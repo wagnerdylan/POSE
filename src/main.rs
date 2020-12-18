@@ -66,7 +66,13 @@ mod cli {
     }
 }
 
-fn init_simulation_objects(env: &Environment, sim_objs: &Vec<SimobjT>){
+/// Initialize derived information from source information for each object within the simulation.
+///
+/// ### Arguments
+/// * 'env' - Simulation environment
+/// * 'sim_objs' - Array slice of simulation objects
+///
+fn init_simulation_objects(env: &Environment, sim_objs: &[SimobjT]){
     for sim_obj in sim_objs {
         env.calculate_abs_coords(sim_obj);
     }
