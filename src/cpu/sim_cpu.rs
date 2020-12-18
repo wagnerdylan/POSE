@@ -1,7 +1,8 @@
 use crate::bodies;
+use bodies::{Simobj, KeplerModel};
 use crate::output;
 use input::SimulationParameters;
-use sim_cpu::cowell_perturb::apply_perturbations;
+use self::cowell_perturb::apply_perturbations;
 use std::string::ToString;
 use strum_macros::Display;
 use types::Array3d;
@@ -91,9 +92,11 @@ fn write_out_all_solar_objects(
     env: &bodies::Environment,
     output_controller: &mut dyn output::SimulationOutput,
 ) {
-    for solar_object in env.get_solar_objects() {
-        output_controller.write_out_solar_object(solar_object.to_output_form(env.sim_time_s));
-    }
+    
+    output_controller.write_out_solar_object(env.sun.to_output_form(env.sim_time_s));
+    output_controller.write_out_solar_object(env.earth.to_output_form(env.sim_time_s));
+    output_controller.write_out_solar_object(env.moon.to_output_form(env.sim_time_s));
+    
 }
 
 fn l2_norm(x: &Array3d) -> f64 {
@@ -116,9 +119,9 @@ fn normalize(x: &Array3d, l2_norm_precalc: Option<f64>) -> Array3d {
 /// Module used to apply perturbation calculations on individual bodies
 mod cowell_perturb {
     use crate::bodies;
-    use crate::sim_cpu::{Perturbation, PerturbationDelta};
+    use super::{Perturbation, PerturbationDelta};
+    use super::{l2_norm, normalize, G};
     use bodies::Solarobj;
-    use sim_cpu::{l2_norm, normalize, G};
     use types::Array3d;
 
     /// Apply all perturbations handled by POSE. This includes:
@@ -229,7 +232,7 @@ mod cowell_perturb {
             unit_vector * (-G * (planet_mass_kg / l2_dist.powi(2)))
         }
 
-        let mut perturbation_vec = Vec::<Array3d>::with_capacity(env.get_solar_objects().len());
+        let mut perturbation_vec = Vec::<Array3d>::with_capacity(env.num_bodies.into());
         // Calculate perturbations for each planet object in the environment
         for planet_idx in 0..env.get_solar_objects().len() {
             // Calculate L2 Norm from sim_obj to planet at index planet_index

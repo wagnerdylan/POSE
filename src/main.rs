@@ -16,7 +16,7 @@ extern crate strum_macros;
 mod bodies;
 mod input;
 mod output;
-mod sim_cpu;
+mod cpu;
 mod types;
 
 mod cli {
@@ -69,11 +69,11 @@ fn main() {
     let sim_params = input::gather_program_arguments(matches);
 
     let (sim_bodies, start_time) = input::parse_input(sim_params.input_bodies_json.as_str());
-    let env = bodies::Environment::new(start_time);
+    let env = bodies::Environment::new(start_time, &sim_params);
 
     let output_controller = Box::new(output::csv_output::CSVController::new(
         sim_params.output_dir.as_str(),
     ));
 
-    sim_cpu::simulate(sim_bodies, env, output_controller, sim_params);
+    cpu::sim_cpu::simulate(sim_bodies, env, output_controller, sim_params);
 }
