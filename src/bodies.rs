@@ -1,8 +1,9 @@
 use crate::output;
+use crate::types;
 use chrono::{DateTime, Duration, TimeZone, Utc};
-use ndarray::{arr1, Array1, ArrayView1, OwnedRepr};
 use serde::{Deserialize, Serialize};
 use strum_macros::Display;
+use types::Array3d;
 
 const METERS_PER_ASTRONOMICAL_UNIT: f64 = 1.4959787e+11;
 const METERS_PER_EARTH_EQUATORIAL_RADIUS: f64 = 6378140.0;
@@ -24,28 +25,26 @@ pub trait Simobj {
     fn type_of(&self) -> String;
     fn get_id(&self) -> u32;
     fn id_mut(&mut self) -> &mut u32;
-    fn get_coords(&self) -> (f64, f64, f64);
-    fn get_coords_as_ndarray(&self) -> ndarray::Array1<f64>;
-    fn set_coords(&mut self, x: f64, y: f64, z: f64);
-    fn get_velocity(&self) -> (f64, f64, f64);
-    fn get_velocity_as_ndarray(&self) -> ndarray::Array1<f64>;
-    fn set_velocity(&mut self, x: f64, y: f64, z: f64);
+    fn get_ref_coords(&self) -> &types::Array3d;
+    fn set_coords(&mut self, value: Array3d);
+    fn get_ref_velocity(&self) -> &types::Array3d;
+    fn set_velocity(&mut self, value: Array3d);
     fn get_drag_area(&self) -> f64;
     fn get_mass(&self) -> f64;
 
     fn to_output_form(&self, sim_time: f64) -> output::SimulationObjectParameters {
-        let (x_coord, y_coord, z_coord) = self.get_coords();
-        let (x_velocity, y_velocity, z_velocity) = self.get_velocity();
+        let coords = self.get_ref_coords();
+        let velocity = self.get_ref_velocity();
 
         output::SimulationObjectParameters {
             id: self.get_id(),
             sim_time,
-            x_coord,
-            y_coord,
-            z_coord,
-            x_velocity,
-            y_velocity,
-            z_velocity,
+            x_coord: coords.x,
+            y_coord: coords.y,
+            z_coord: coords.z,
+            x_velocity: velocity.x,
+            y_velocity: velocity.y,
+            z_velocity: velocity.z
         }
     }
 }
@@ -54,12 +53,8 @@ pub trait Simobj {
 pub struct Spacecraft {
     #[serde(skip_deserializing)]
     id: u32,
-    x_dis: f64,
-    y_dis: f64,
-    z_dis: f64,
-    x_vel: f64,
-    y_vel: f64,
-    z_vel: f64,
+    coords: Array3d,
+    velocity: Array3d,
     drag_area: f64,
     mass: f64,
 }
@@ -77,32 +72,21 @@ impl Simobj for Spacecraft {
         &mut self.id
     }
 
-    fn get_coords(&self) -> (f64, f64, f64) {
-        (self.x_dis, self.y_dis, self.z_dis)
+
+    fn get_ref_coords(&self) -> &Array3d {
+        &self.coords
     }
 
-    fn get_coords_as_ndarray(&self) -> Array1<f64> {
-        arr1(&[self.x_dis, self.y_dis, self.z_dis])
+    fn set_coords(&mut self, value: Array3d) {
+        self.coords = value;
     }
 
-    fn set_coords(&mut self, x: f64, y: f64, z: f64) {
-        self.x_dis = x;
-        self.y_dis = y;
-        self.z_dis = z;
+    fn get_ref_velocity(&self) -> &Array3d {
+        &self.velocity
     }
 
-    fn get_velocity(&self) -> (f64, f64, f64) {
-        (self.x_vel, self.y_vel, self.z_vel)
-    }
-
-    fn get_velocity_as_ndarray(&self) -> Array1<f64> {
-        arr1(&[self.x_vel, self.y_vel, self.z_vel])
-    }
-
-    fn set_velocity(&mut self, x: f64, y: f64, z: f64) {
-        self.x_vel = x;
-        self.y_vel = y;
-        self.z_vel = z;
+    fn set_velocity(&mut self, value: Array3d) {
+        self.velocity = value;
     }
 
     fn get_drag_area(&self) -> f64 {
@@ -119,12 +103,8 @@ impl Simobj for Spacecraft {
 pub struct Debris {
     #[serde(skip_deserializing)]
     id: u32,
-    x_dis: f64,
-    y_dis: f64,
-    z_dis: f64,
-    x_vel: f64,
-    y_vel: f64,
-    z_vel: f64,
+    coords: Array3d,
+    velocity: Array3d,
     drag_area: f64,
     mass: f64,
 }
@@ -142,32 +122,21 @@ impl Simobj for Debris {
         &mut self.id
     }
 
-    fn get_coords(&self) -> (f64, f64, f64) {
-        (self.x_dis, self.y_dis, self.z_dis)
+
+    fn get_ref_coords(&self) -> &Array3d {
+        &self.coords
     }
 
-    fn get_coords_as_ndarray(&self) -> Array1<f64> {
-        arr1(&[self.x_dis, self.y_dis, self.z_dis])
+    fn set_coords(&mut self, value: Array3d) {
+        self.coords = value;
     }
 
-    fn set_coords(&mut self, x: f64, y: f64, z: f64) {
-        self.x_dis = x;
-        self.y_dis = y;
-        self.z_dis = z;
+    fn get_ref_velocity(&self) -> &Array3d {
+        &self.velocity
     }
 
-    fn get_velocity(&self) -> (f64, f64, f64) {
-        (self.x_vel, self.y_vel, self.z_vel)
-    }
-
-    fn get_velocity_as_ndarray(&self) -> Array1<f64> {
-        arr1(&[self.x_vel, self.y_vel, self.z_vel])
-    }
-
-    fn set_velocity(&mut self, x: f64, y: f64, z: f64) {
-        self.x_vel = x;
-        self.y_vel = y;
-        self.z_vel = z;
+    fn set_velocity(&mut self, value: Array3d) {
+        self.velocity = value;
     }
 
     fn get_drag_area(&self) -> f64 {
@@ -219,24 +188,26 @@ impl Environment {
         &self,
         sim_obj: &dyn Simobj,
         solar_obj_index: usize,
-    ) -> Option<ndarray::Array1<f64>> {
+    ) -> Option<Array3d> {
         let current_solar_obj = match self.bodies.get(solar_obj_index) {
             Some(obj) => obj,
             None => return None,
         };
 
         let solar_obj_coords = current_solar_obj.get_coords();
-        let (sim_x, sim_y, sim_z) = sim_obj.get_coords();
+        let sim_coords = sim_obj.get_ref_coords();
 
         // If the object is the centric or not helio centric
-        let (x, y, z) = if solar_obj_index == 0 {
-            (sim_x, sim_y, sim_z)
-        } else if !current_solar_obj.get_coords().heliocentric {
-            (
-                solar_obj_coords.xh - sim_x,
-                solar_obj_coords.yh - sim_y,
-                solar_obj_coords.zh - sim_z,
-            )
+        if solar_obj_index == 0 {
+            return Some(sim_coords.clone());
+        }
+
+        let dist_array = if !current_solar_obj.get_coords().heliocentric {
+            Array3d{
+                x: solar_obj_coords.xh - sim_coords.x,
+                y: solar_obj_coords.yh  - sim_coords.y,
+                z: solar_obj_coords.zh - sim_coords.z,
+            }
         } else {
             let centric_solar_obj = match self.bodies.get(0) {
                 Some(obj) => obj,
@@ -244,14 +215,15 @@ impl Environment {
             };
 
             let centric_obj_coords = centric_solar_obj.get_coords();
-            (
-                solar_obj_coords.xh - (centric_obj_coords.xh + sim_x),
-                solar_obj_coords.yh - (centric_obj_coords.yh + sim_y),
-                solar_obj_coords.zh - (centric_obj_coords.zh + sim_z),
-            )
+
+            Array3d{
+                x: solar_obj_coords.xh - (centric_obj_coords.xh + sim_coords.x),
+                y: solar_obj_coords.yh - (centric_obj_coords.yh + sim_coords.y),
+                z: solar_obj_coords.zh - (centric_obj_coords.zh + sim_coords.z)
+            }
         };
 
-        Some(ndarray::arr1::<f64>(&[x, y, z]))
+        Some(dist_array)
     }
 
     pub fn update(&mut self) {

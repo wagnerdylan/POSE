@@ -4,6 +4,7 @@ use input::SimulationParameters;
 use sim_cpu::cowell_perturb::apply_perturbations;
 use std::string::ToString;
 use strum_macros::Display;
+use types::Array3d;
 
 // Gravitational constant 6.674×10−11
 const G: f64 = 6.674e-11;
@@ -95,16 +96,21 @@ fn write_out_all_solar_objects(
     }
 }
 
-fn l2_norm(x: &ndarray::ArrayView1<f64>) -> f64 {
+fn l2_norm(x: &Array3d) -> f64 {
     x.dot(x).sqrt()
 }
 
-fn normalize(x: &ndarray::ArrayView1<f64>, l2_norm_precalc: Option<f64>) -> ndarray::Array1<f64> {
+fn normalize(x: &Array3d, l2_norm_precalc: Option<f64>) -> Array3d {
     let norm = match l2_norm_precalc {
         Some(val) => val,
         None => l2_norm(x),
     };
-    x.mapv(|e| e / norm)
+    
+    Array3d{
+        x: x.x / norm,
+        y: x.y / norm,
+        z: x.z / norm
+    }
 }
 
 /// Module used to apply perturbation calculations on individual bodies
@@ -112,8 +118,8 @@ mod cowell_perturb {
     use crate::bodies;
     use crate::sim_cpu::{Perturbation, PerturbationDelta};
     use bodies::Solarobj;
-    use ndarray::{Array1, ArrayView1};
     use sim_cpu::{l2_norm, normalize, G};
+    use types::Array3d;
 
     /// Apply all perturbations handled by POSE. This includes:
     /// * 'Solar Body Earth'
@@ -124,6 +130,7 @@ mod cowell_perturb {
     /// ### Parameters
     /// * 'sim_obj' - The object basis for calculation and apply
     /// * 'env' - The Simulation environment
+    /// * 'step_time_s' - Step time of the simulation in seconds
     /// * 'do_return_peturb' - true if vector should be returned, false otherwise
     ///
     /// ### Return
@@ -135,36 +142,37 @@ mod cowell_perturb {
         step_time_s: f64,
         do_return_perturb: bool,
     ) -> Option<Vec<Perturbation>> {
+
+        let mut net_acceleration = Array3d{
+            x: 0.0,
+            y: 0.0,
+            z: 0.0
+        };
+
+        // Calculate the pertubation forces for all planetary objects
         let gravity_perturbations = calc_planet_perturb(sim_obj, env, do_return_perturb);
 
-        let perturbation_vec = vec![gravity_perturbations.0];
-        let combined_acceleration = {
-            let mut summation = ndarray::Array1::<f64>::zeros(3);
-            for element in perturbation_vec {
-                summation[0] += element.acceleration_x_mpss;
-                summation[1] += element.acceleration_y_mpss;
-                summation[2] += element.acceleration_z_mpss;
-            }
-            summation
-        };
-        let velocity_delta: Array1<f64> = combined_acceleration * step_time_s;
-        let updated_sim_obj_velocity = sim_obj.get_velocity_as_ndarray() + velocity_delta;
+        // TODO make the delta return a Array3d type
+        // Combine the perturbation deltas from all perturbating forces
+        net_acceleration.x += gravity_perturbations.0.acceleration_x_mpss;
+        net_acceleration.y += gravity_perturbations.0.acceleration_y_mpss;
+        net_acceleration.z += gravity_perturbations.0.acceleration_z_mpss;
 
+        // Calculate the velocity change from net acceleration
+        let velocity_delta = net_acceleration * step_time_s;
+        // Calculate new velocity for the given simulation object
+        let updated_sim_obj_velocity = velocity_delta + sim_obj.get_ref_velocity();
+
+        // Calculate the position change from the updated velocity
         let position_delta = updated_sim_obj_velocity.clone() * step_time_s;
-        let updated_sim_obj_coords = sim_obj.get_coords_as_ndarray() + position_delta;
+        // Calculate the new position for the simulation object
+        let updated_sim_obj_coords = position_delta + sim_obj.get_ref_coords();
 
-        sim_obj.set_velocity(
-            updated_sim_obj_velocity[0],
-            updated_sim_obj_velocity[1],
-            updated_sim_obj_velocity[2],
-        );
+        // Update the new values within the simulation object
+        sim_obj.set_velocity(updated_sim_obj_velocity.clone());
+        sim_obj.set_coords(updated_sim_obj_coords.clone());
 
-        sim_obj.set_coords(
-            updated_sim_obj_coords[0],
-            updated_sim_obj_coords[1],
-            updated_sim_obj_coords[2],
-        );
-
+        // If pertubation details are not needed, return
         if !do_return_perturb {
             return None;
         }
@@ -203,10 +211,10 @@ mod cowell_perturb {
         do_return_perturb: bool,
     ) -> (PerturbationDelta, Option<Vec<Perturbation>>) {
         fn newton_gravitational_field(
-            distance_vector: &ArrayView1<f64>,
+            distance_vector: &Array3d,
             planet_idx: usize,
             env: &bodies::Environment,
-        ) -> ndarray::Array1<f64> {
+        ) -> Array3d {
             let l2_dist = l2_norm(distance_vector);
             // Calculate unit vector for perturbation
             let unit_vector = normalize(distance_vector, Some(l2_dist));
@@ -221,7 +229,7 @@ mod cowell_perturb {
             unit_vector * (-G * (planet_mass_kg / l2_dist.powi(2)))
         }
 
-        let mut perturbation_vec = Vec::<Array1<f64>>::with_capacity(env.get_solar_objects().len());
+        let mut perturbation_vec = Vec::<Array3d>::with_capacity(env.get_solar_objects().len());
         // Calculate perturbations for each planet object in the environment
         for planet_idx in 0..env.get_solar_objects().len() {
             // Calculate L2 Norm from sim_obj to planet at index planet_index
@@ -230,7 +238,7 @@ mod cowell_perturb {
                 .expect("Expected in range environment access, invalid index provided.");
             // Calculate gravity field at position of sim object from planet body
             let mut grav_accel =
-                newton_gravitational_field(&distance_vector.view(), planet_idx, env);
+                newton_gravitational_field(&distance_vector, planet_idx, env);
 
             let solar_obj = env
                 .get_solar_objects()
@@ -249,15 +257,15 @@ mod cowell_perturb {
                             .expect("Expected in range environment access, invalid index provided")
                             .get_coords();
                         let current_obj_coords = solar_obj.get_coords();
-                        ndarray::arr1(&[
-                            current_obj_coords.xh - centric_obj_coords.xh,
-                            current_obj_coords.yh - centric_obj_coords.yh,
-                            current_obj_coords.zh - centric_obj_coords.zh,
-                        ])
+                        Array3d{
+                            x: current_obj_coords.xh - centric_obj_coords.xh,
+                            y: current_obj_coords.yh - centric_obj_coords.yh,
+                            z: current_obj_coords.zh - centric_obj_coords.zh
+                        }
                     };
                     // Calculate gravity field at position of centric
                     let centric_grav = newton_gravitational_field(
-                        &centric_sun_dist_vector.view(),
+                        &centric_sun_dist_vector,
                         planet_idx,
                         env,
                     );
@@ -270,14 +278,17 @@ mod cowell_perturb {
             perturbation_vec.push(grav_accel);
         }
 
+        // Calculate the net acceleration on the sim object
+        let pertubation_sum: Array3d = perturbation_vec.iter().sum(); 
+
         // Calculate final perturbation
         let sum_perturb = {
             PerturbationDelta {
                 id: sim_obj.get_id(),
                 sim_time: env.sim_time_s,
-                acceleration_x_mpss: perturbation_vec.iter().map(|x| x[0]).sum(),
-                acceleration_y_mpss: perturbation_vec.iter().map(|x| x[1]).sum(),
-                acceleration_z_mpss: perturbation_vec.iter().map(|x| x[2]).sum(),
+                acceleration_x_mpss: pertubation_sum.x,
+                acceleration_y_mpss: pertubation_sum.y,
+                acceleration_z_mpss: pertubation_sum.z,
             }
         };
 
@@ -294,9 +305,9 @@ mod cowell_perturb {
                     PerturbationDelta {
                         id: sim_obj.get_id(),
                         sim_time: env.sim_time_s,
-                        acceleration_x_mpss: perturb[0],
-                        acceleration_y_mpss: perturb[1],
-                        acceleration_z_mpss: perturb[2],
+                        acceleration_x_mpss: perturb.x,
+                        acceleration_y_mpss: perturb.y,
+                        acceleration_z_mpss: perturb.z,
                     },
                 )
             })
