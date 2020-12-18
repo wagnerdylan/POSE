@@ -1,5 +1,4 @@
 use super::bodies;
-use bodies::Simobj;
 
 use chrono::DateTime;
 use clap::ArgMatches;
@@ -55,11 +54,13 @@ pub fn parse_input(file: &str) -> (Vec<bodies::SimobjT>, DateTime<chrono::Utc>) 
     let ser_objs = read_object_from_file(file).unwrap();
 
     //add objects to sim_bodies
-    for elem in ser_objs.debris {
+    for mut elem in ser_objs.debris {
+        elem.sim_object_type = bodies::SimObjectType::Debris;
         sim_bodies.push(elem);
     }
 
-    for elem in ser_objs.spacecraft {
+    for mut elem in ser_objs.spacecraft {
+        elem.sim_object_type = bodies::SimObjectType::Spacecraft;
         sim_bodies.push(elem);
     }
 
@@ -104,7 +105,7 @@ fn assign_id(sim_bodies: &mut Vec<bodies::SimobjT>) {
     let mut id_inc: u32 = 1;
 
     for body in sim_bodies {
-        *body.id_mut() = id_inc;
+        body.id = id_inc;
         id_inc += 1;
     }
 }

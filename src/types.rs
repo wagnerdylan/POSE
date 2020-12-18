@@ -15,6 +15,16 @@ impl Array3d {
     }
 }
 
+impl Default for Array3d {
+    fn default() -> Self {
+        Self {
+            x: 0f64,
+            y: 0f64,
+            z: 0f64
+        }
+    }
+}
+
 impl<'a> Sum<&'a Self> for Array3d {
     fn sum<I>(iter: I) -> Self 
     where I: Iterator<Item = &'a Self> { 

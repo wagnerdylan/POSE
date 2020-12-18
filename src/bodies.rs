@@ -1,5 +1,4 @@
 use crate::{input::SimulationParameters, output};
-use crate::types;
 use chrono::{DateTime, Duration, TimeZone, Utc};
 use serde::{Deserialize, Serialize};
 use strum_macros::Display;
@@ -21,34 +20,12 @@ pub struct InitData {
 
 pub trait Simobj {
     fn type_of(&self) -> String;
-    fn get_id(&self) -> u32;
-    fn id_mut(&mut self) -> &mut u32;
-    fn get_ref_coords(&self) -> &types::Array3d;
-    fn set_coords(&mut self, value: Array3d);
-    fn get_ref_velocity(&self) -> &types::Array3d;
-    fn set_velocity(&mut self, value: Array3d);
-    fn get_drag_area(&self) -> f64;
-    fn get_mass(&self) -> f64;
 
-    fn to_output_form(&self, sim_time: f64) -> output::SimulationObjectParameters {
-        let coords = self.get_ref_coords();
-        let velocity = self.get_ref_velocity();
-
-        output::SimulationObjectParameters {
-            id: self.get_id(),
-            sim_time,
-            x_coord: coords.x,
-            y_coord: coords.y,
-            z_coord: coords.z,
-            x_velocity: velocity.x,
-            y_velocity: velocity.y,
-            z_velocity: velocity.z
-        }
-    }
+    fn to_output_form(&self, sim_time: f64) -> output::SimulationObjectParameters;
 }
 
 #[derive(Serialize)]
-enum SimObjectType{
+pub enum SimObjectType{
     Spacecraft,
     Debris
 }
@@ -60,54 +37,40 @@ impl Default for SimObjectType{
 #[derive(Serialize, Deserialize)]
 pub struct SimobjT {
     #[serde(skip_deserializing)]
-    id: u32,
+    pub id: u32,
     #[serde(skip_deserializing)]
-    sim_object_type: SimObjectType,
-    coords: Array3d,
-    velocity: Array3d,
-    drag_area: f64,
-    mass: f64,
+    pub sim_object_type: SimObjectType,
+    #[serde(skip_deserializing)]
+    pub coords_abs: Array3d,
+    pub soi: Solarobj,
+    pub coords: Array3d,
+    pub velocity: Array3d,
+    pub drag_area: f64,
+    pub mass: f64,
 }
 
 impl Simobj for SimobjT {
     fn type_of(&self) -> String {
         match self.sim_object_type{
-            Spacecraft => String::from("Spacecraft"),
-            Debris => String::from("Debris"),
+            SimObjectType::Spacecraft => String::from("Spacecraft"),
+            SimObjectType::Debris => String::from("Debris"),
         }
     }
 
-    fn get_id(&self) -> u32 {
-        self.id
-    }
+    fn to_output_form(&self, sim_time: f64) -> output::SimulationObjectParameters {
+        let coords = &self.coords;
+        let velocity = &self.velocity;
 
-    fn id_mut(&mut self) -> &mut u32 {
-        &mut self.id
-    }
-
-
-    fn get_ref_coords(&self) -> &Array3d {
-        &self.coords
-    }
-
-    fn set_coords(&mut self, value: Array3d) {
-        self.coords = value;
-    }
-
-    fn get_ref_velocity(&self) -> &Array3d {
-        &self.velocity
-    }
-
-    fn set_velocity(&mut self, value: Array3d) {
-        self.velocity = value;
-    }
-
-    fn get_drag_area(&self) -> f64 {
-        self.drag_area
-    }
-
-    fn get_mass(&self) -> f64 {
-        self.mass
+        output::SimulationObjectParameters {
+            id: self.id,
+            sim_time,
+            x_coord: coords.x,
+            y_coord: coords.y,
+            z_coord: coords.z,
+            x_velocity: velocity.x,
+            y_velocity: velocity.y,
+            z_velocity: velocity.z
+        }
     }
 }
 
@@ -157,31 +120,40 @@ impl Environment {
 
 
         // Set the corresponding last and current coords
-        self.last_sun_coords = self.sun.coords.clone();
-        self.current_sun_coords = self.sun.coords.clone();
+        self.last_sun_coords = self.sun.coords;
+        self.current_sun_coords = self.sun.coords;
 
-        self.last_earth_coords = self.earth.coords.clone();
-        self.current_earth_coords = self.earth.coords.clone();
+        self.last_earth_coords = self.earth.coords;
+        self.current_earth_coords = self.earth.coords;
 
-        self.last_moon_coords = self.moon.coords.clone();
-        self.current_moon_coords = self.moon.coords.clone();
+        self.last_moon_coords = self.moon.coords;
+        self.current_moon_coords = self.moon.coords;
 
 
         self.future_day_update_s = self.sim_time_s + (sim_params.sim_solar_step as f64);      
 
         // Calculate new positions at future time
-        new_time = self.start_time + Duration::seconds(self.future_day_update_s as i64);
-        self.update_solar_objs(&new_time);
+        let future_time = self.start_time + Duration::seconds(self.future_day_update_s as i64);
+        self.update_solar_objs(&future_time);
 
     }
 
-    pub fn sync_sim_objects(&self, sim_objects: &Vec<SimobjT>, sim_params: &SimulationParameters){
+    pub fn advance_simulation_envrionment(&self, sim_params: &SimulationParameters){
         // Perform a linear interpolation from the current solar object coords to the future solar coords
         // Store current solar object coords
         // Set the current solar object coords to the interp value
         // Take stored solar object coords and find delta to current solar object coords
         // Add corrsponding solar object delta to each sim object
         todo!()
+    }
+
+    pub fn calculate_abs_coords(&self, sim_obj: &SimobjT) -> Array3d{
+        match sim_obj.soi {
+            Solarobj::Sun { attr: _, .. } => { self.current_sun_coords + sim_obj.coords }
+            Solarobj::Earth { attr: _, .. } => { self.current_earth_coords + sim_obj.coords }
+            // Lunar coords are abs also
+            Solarobj::Moon { attr: _, .. } => { self.current_moon_coords + sim_obj.coords}
+        }
     }
 
     /// Calculates a delta for provided datetime from 0/Jan/2000 00:00 UTC
@@ -214,18 +186,18 @@ impl Environment {
         let earth_precalc = make_earth(day);
         let moon_precalc = make_moon(day, earth_precalc.get_coords());
 
-        let env = Environment {
+        let mut env = Environment {
             last_day_update_s: 0f64,
             sim_time_s: 0f64,
             future_day_update_s: sim_params.sim_solar_step as f64,
             start_time,
-            sun: sun_precalc,
+            sun: sun_precalc.clone(),
             last_sun_coords: sun_precalc.coords,
             current_sun_coords: sun_precalc.coords,
-            earth: earth_precalc,
+            earth: earth_precalc.clone(),
             last_earth_coords: earth_precalc.coords,
             current_earth_coords: earth_precalc.coords,
-            moon: moon_precalc,
+            moon: moon_precalc.clone(),
             last_moon_coords: moon_precalc.coords,
             current_moon_coords: moon_precalc.coords
         };
@@ -236,17 +208,18 @@ impl Environment {
     }
 }
 
-#[derive(Display, Clone)]
+#[derive(Display, Clone, Deserialize, Serialize)]
+#[serde(tag = "type")]
 pub enum Solarobj {
     #[strum(serialize = "sun")]
-    Sun { attr: SolarAttr },
+    Sun { attr: Option<SolarAttr> },
     #[strum(serialize = "earth")]
-    Earth { attr: SolarAttr },
+    Earth { attr: Option<SolarAttr> },
     #[strum(serialize = "moon")]
-    Moon { attr: SolarAttr },
+    Moon { attr: Option<SolarAttr> },
 }
 
-#[derive(Clone)]
+#[derive(Clone, Deserialize, Serialize)]
 pub struct SolarAttr {
     radius: f64, // meters
     mass: f64,   // kg
@@ -254,14 +227,17 @@ pub struct SolarAttr {
 
 impl Solarobj {
     pub fn get_mass_kg(&self) -> f64 {
+        const ERROR_MSG: &str = "Enum has some field for attr";
+
         match self {
-            Solarobj::Sun { attr } => attr.mass,
-            Solarobj::Earth { attr } => attr.mass,
-            Solarobj::Moon { attr } => attr.mass,
+            Solarobj::Sun { attr } => attr.as_ref().expect(ERROR_MSG).mass,
+            Solarobj::Earth { attr } => attr.as_ref().expect(ERROR_MSG).mass,
+            Solarobj::Moon { attr } => attr.as_ref().expect(ERROR_MSG).mass,
         }
     }
 }
 
+#[derive(Clone)]
 pub struct PlanetPS {
     // See  http://www.stjarnhimlen.se/comp/ppcomp.html#4
     solartype: Solarobj, // Type enum of the solar obj
@@ -284,11 +260,13 @@ pub struct PlanetPS {
     mag_nonlinear_exponent: f64,
 }
 
+#[derive(Clone)]
 pub struct Earth {
     solartype: Solarobj,
     coords: Array3d,
 }
 
+#[derive(Clone)]
 pub struct Sun {
     solartype: Solarobj,
     coords: Array3d,
@@ -515,7 +493,7 @@ impl KeplerModel for PlanetPS {
     }
 
     fn distance_between_sim_object(&self, sim_obj: &SimobjT) -> Array3d {
-        &self.coords - sim_obj.get_ref_coords()
+        &self.coords - &sim_obj.coords_abs
     }
 }
 
@@ -590,7 +568,7 @@ impl KeplerModel for Earth {
     }
 
     fn distance_between_sim_object(&self, sim_obj: &SimobjT) -> Array3d {
-        &self.coords - sim_obj.get_ref_coords()
+        &self.coords - &sim_obj.coords_abs
     }
 }
 
@@ -616,7 +594,7 @@ impl KeplerModel for Sun {
     }
 
     fn distance_between_sim_object(&self, sim_obj: &SimobjT) -> Array3d {
-        &self.coords - sim_obj.get_ref_coords()
+        &self.coords - &sim_obj.coords_abs
     }
 }
 
@@ -626,10 +604,10 @@ impl KeplerModel for Sun {
 ///       A newly crafted sun object.
 fn make_sun() -> Sun {
     let solar_trait = Solarobj::Sun {
-        attr: SolarAttr {
+        attr: Some(SolarAttr {
             radius: 6.95700e8,
             mass: 1.9891e30,
-        },
+        }),
     };
 
     Sun {
@@ -652,10 +630,10 @@ fn make_sun() -> Sun {
 ///
 fn make_earth(day: f64) -> Earth {
     let solar_trait = Solarobj::Earth {
-        attr: SolarAttr {
+        attr: Some(SolarAttr {
             radius: 6.3781e6,
             mass: 5.9722e24,
-        },
+        }),
     };
 
     let mut earth_body = Earth {
@@ -682,10 +660,10 @@ fn make_earth(day: f64) -> Earth {
 ///
 fn make_moon(day: f64, earth_coords: &Array3d) -> PlanetPS {
     let solar_trait = Solarobj::Moon {
-        attr: SolarAttr {
+        attr: Some(SolarAttr {
             radius: 1738.1,
             mass: 0.07346e24,
-        },
+        }),
     };
 
     let mut moon_body = PlanetPS {
