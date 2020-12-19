@@ -1,5 +1,7 @@
 use serde::Serialize;
 
+use crate::bodies::{self, KeplerModel};
+
 #[derive(Debug, Serialize)]
 pub struct SolarObjectOut {
     pub name: String,  // Name of the solar object
@@ -23,6 +25,10 @@ pub struct PerturbationOut {
 pub struct SimulationObjectParameters {
     pub id: u32,         // ID of the object
     pub sim_time: f64,   // Simulation time
+    pub soi: String, // Sphere of influence in string form
+    pub x_abs_coord: f64, /// Absolute coordinate of object in the x axis
+    pub y_abs_coord: f64, /// Absolute coordinate of object in the y axis
+    pub z_abs_coord: f64, /// Absolute coordinate of object in the z axis
     pub x_coord: f64,    // Coordinate of object in the x axis
     pub y_coord: f64,    // Coordinate of object in the y axis
     pub z_coord: f64,    // Coordinate of object in the z axis
@@ -104,4 +110,14 @@ pub mod csv_output {
             self.solar_object_writer.flush().unwrap();
         }
     }
+}
+
+
+pub fn write_out_all_solar_objects(
+    env: &bodies::Environment,
+    output_controller: &mut dyn SimulationOutput,
+) {
+    output_controller.write_out_solar_object(env.sun_to_output_form());
+    output_controller.write_out_solar_object(env.earth_to_output_form());
+    output_controller.write_out_solar_object(env.moon_to_output_form());
 }

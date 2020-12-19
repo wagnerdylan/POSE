@@ -92,4 +92,5 @@ fn main() {
     ));
 
     //cpu::sim_cpu::simulate(sim_bodies, env, output_controller, sim_params);
+
 }

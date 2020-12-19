@@ -58,12 +58,17 @@ impl Simobj for SimobjT {
     }
 
     fn to_output_form(&self, sim_time: f64) -> output::SimulationObjectParameters {
+        let abs_coords = &self.coords_abs;
         let coords = &self.coords;
         let velocity = &self.velocity;
 
         output::SimulationObjectParameters {
             id: self.id,
             sim_time,
+            soi: self.soi.to_string(),
+            x_abs_coord: abs_coords.x,
+            y_abs_coord: abs_coords.y,
+            z_abs_coord: abs_coords.z,
             x_coord: coords.x,
             y_coord: coords.y,
             z_coord: coords.z,
@@ -240,6 +245,64 @@ impl Environment {
         env.update(sim_params);
 
         env
+    }
+
+    /// Get simulation time in seconds
+    pub fn get_sim_time(&self) -> f64 {
+        self.sim_time_s
+    }
+
+    pub fn calculate_earth_orbital_velocity_ins() -> Array3d{
+        todo!()
+    }
+
+    pub fn calculate_lunar_orbital_velocity_ins() -> Array3d{
+        todo!()
+    }
+
+    /// Convert solar data into output form
+    ///
+    /// ### Return
+    /// Returns solar data in form which is used for output
+    ///
+    pub fn sun_to_output_form(&self) -> output::SolarObjectOut {
+        output::SolarObjectOut {
+            name: self.sun.get_solar_object().to_string(),
+            sim_time: self.sim_time_s,
+            x_coord: self.current_sun_coords.x as f32,
+            y_coord: self.current_sun_coords.y as f32,
+            z_coord: self.current_sun_coords.z as f32,
+        }
+    }
+
+    /// Convert earth data into output form
+    ///
+    /// ### Return
+    /// Returns earth data in form which is used for output
+    ///
+    pub fn earth_to_output_form(&self) -> output::SolarObjectOut {
+        output::SolarObjectOut {
+            name: self.earth.get_solar_object().to_string(),
+            sim_time: self.sim_time_s,
+            x_coord: self.current_earth_coords.x as f32,
+            y_coord: self.current_earth_coords.y as f32,
+            z_coord: self.current_earth_coords.z as f32,
+        }
+    }
+
+    /// Convert lunar data into output form
+    ///
+    /// ### Return
+    /// Return lunar data in form which is used for output
+    ///
+    pub fn moon_to_output_form(&self) -> output::SolarObjectOut {
+        output::SolarObjectOut {
+            name: self.moon.get_solar_object().to_string(),
+            sim_time: self.sim_time_s,
+            x_coord: self.current_moon_coords.x as f32,
+            y_coord: self.current_moon_coords.y as f32,
+            z_coord: self.current_moon_coords.z as f32,
+        }
     }
 }
 
@@ -443,16 +506,6 @@ pub trait KeplerModel {
     fn mut_coords(&mut self) -> &mut Array3d;
 
     fn get_solar_object(&self) -> &Solarobj;
-
-    fn to_output_form(&self, sim_time_s: f64) -> output::SolarObjectOut {
-        output::SolarObjectOut {
-            name: self.get_solar_object().to_string(),
-            sim_time: sim_time_s,
-            x_coord: self.get_coords().x as f32,
-            y_coord: self.get_coords().y as f32,
-            z_coord: self.get_coords().z as f32,
-        }
-    }
 }
 
 impl KeplerModel for PlanetPS {

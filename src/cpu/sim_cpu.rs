@@ -88,16 +88,6 @@ fn write_out_all_object_parameters(
     }
 }
 
-fn write_out_all_solar_objects(
-    env: &bodies::Environment,
-    output_controller: &mut dyn output::SimulationOutput,
-) {
-    
-    output_controller.write_out_solar_object(env.sun.to_output_form(env.sim_time_s));
-    output_controller.write_out_solar_object(env.earth.to_output_form(env.sim_time_s));
-    output_controller.write_out_solar_object(env.moon.to_output_form(env.sim_time_s));
-    
-}
 
 fn l2_norm(x: &Array3d) -> f64 {
     x.dot(x).sqrt()
