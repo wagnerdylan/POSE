@@ -17,12 +17,6 @@ pub struct InitData {
     pub spacecraft: Vec<SimobjT>, // Spacecraft objects
 }
 
-pub trait Simobj {
-    fn type_of(&self) -> String;
-
-    fn to_output_form(&self, sim_time: f64) -> output::SimulationObjectParameters;
-}
-
 #[derive(Serialize)]
 pub enum SimObjectType {
     Spacecraft,
@@ -50,7 +44,7 @@ pub struct SimobjT {
     pub mass: f64,
 }
 
-impl Simobj for SimobjT {
+impl SimobjT {
     fn type_of(&self) -> String {
         match self.sim_object_type {
             SimObjectType::Spacecraft => String::from("Spacecraft"),

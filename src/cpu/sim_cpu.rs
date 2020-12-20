@@ -13,9 +13,7 @@ const G: f64 = 6.674e-11;
 pub struct PerturbationDelta {
     id: u32,
     sim_time: f64,
-    acceleration_x_mpss: f64,
-    acceleration_y_mpss: f64,
-    acceleration_z_mpss: f64,
+    acceleration: Array3d,
 }
 
 impl Default for PerturbationDelta {
@@ -23,9 +21,7 @@ impl Default for PerturbationDelta {
         Self {
             id: 0,
             sim_time: 0.0,
-            acceleration_x_mpss: 0.0,
-            acceleration_y_mpss: 0.0,
-            acceleration_z_mpss: 0.0,
+            acceleration: Array3d::default(),
         }
     }
 }
