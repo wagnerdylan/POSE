@@ -23,13 +23,16 @@ pub struct PerturbationOut {
 
 #[derive(Debug, Serialize)]
 pub struct SimulationObjectParameters {
-    pub id: u32,         // ID of the object
-    pub sim_time: f64,   // Simulation time
-    pub soi: String, // Sphere of influence in string form
-    pub x_abs_coord: f64, /// Absolute coordinate of object in the x axis
-    pub y_abs_coord: f64, /// Absolute coordinate of object in the y axis
-    pub z_abs_coord: f64, /// Absolute coordinate of object in the z axis
-    pub x_coord: f64,    // Coordinate of object in the x axis
+    pub id: u32,       // ID of the object
+    pub sim_time: f64, // Simulation time
+    pub soi: String,   // Sphere of influence in string form
+    pub x_abs_coord: f64,
+    /// Absolute coordinate of object in the x axis
+    pub y_abs_coord: f64,
+    /// Absolute coordinate of object in the y axis
+    pub z_abs_coord: f64,
+    /// Absolute coordinate of object in the z axis
+    pub x_coord: f64, // Coordinate of object in the x axis
     pub y_coord: f64,    // Coordinate of object in the y axis
     pub z_coord: f64,    // Coordinate of object in the z axis
     pub x_velocity: f64, // Velocity of object in the x axis
@@ -111,7 +114,6 @@ pub mod csv_output {
         }
     }
 }
-
 
 pub fn write_out_all_solar_objects(
     env: &bodies::Environment,

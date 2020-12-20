@@ -10,11 +10,10 @@ const EARTH_RADII_PER_ASTRONOMICAL_UNIT: f64 =
     METERS_PER_ASTRONOMICAL_UNIT / METERS_PER_EARTH_EQUATORIAL_RADIUS; // 23454.78
 const AU_METER: f64 = 1.496e+11;
 
-
 #[derive(Serialize, Deserialize)]
 pub struct InitData {
-    pub date: String,                // Datetime in ISO 8601 format
-    pub debris: Vec<SimobjT>,         // Debris objects
+    pub date: String,             // Datetime in ISO 8601 format
+    pub debris: Vec<SimobjT>,     // Debris objects
     pub spacecraft: Vec<SimobjT>, // Spacecraft objects
 }
 
@@ -25,13 +24,15 @@ pub trait Simobj {
 }
 
 #[derive(Serialize)]
-pub enum SimObjectType{
+pub enum SimObjectType {
     Spacecraft,
-    Debris
+    Debris,
 }
 
-impl Default for SimObjectType{
-    fn default() -> Self {SimObjectType::Spacecraft}
+impl Default for SimObjectType {
+    fn default() -> Self {
+        SimObjectType::Spacecraft
+    }
 }
 
 #[derive(Serialize, Deserialize)]
@@ -51,7 +52,7 @@ pub struct SimobjT {
 
 impl Simobj for SimobjT {
     fn type_of(&self) -> String {
-        match self.sim_object_type{
+        match self.sim_object_type {
             SimObjectType::Spacecraft => String::from("Spacecraft"),
             SimObjectType::Debris => String::from("Debris"),
         }
@@ -74,11 +75,10 @@ impl Simobj for SimobjT {
             z_coord: coords.z,
             x_velocity: velocity.x,
             y_velocity: velocity.y,
-            z_velocity: velocity.z
+            z_velocity: velocity.z,
         }
     }
 }
-
 
 pub struct Environment {
     last_day_update_s: f64,
@@ -87,18 +87,17 @@ pub struct Environment {
     pub start_time: chrono::DateTime<Utc>,
     // All solar bodies below are synced to future time
     pub sun: Sun,
-    last_sun_coords: Array3d, 
-    current_sun_coords: Array3d, 
+    last_sun_coords: Array3d,
+    current_sun_coords: Array3d,
     pub earth: Earth,
-    last_earth_coords: Array3d, 
-    current_earth_coords: Array3d, 
+    last_earth_coords: Array3d,
+    current_earth_coords: Array3d,
     pub moon: PlanetPS,
-    last_moon_coords: Array3d, 
-    current_moon_coords: Array3d, 
+    last_moon_coords: Array3d,
+    current_moon_coords: Array3d,
 }
 
 impl Environment {
-
     /// Updates the solar system objects within the environment.
     ///
     /// ### Argument
@@ -111,23 +110,21 @@ impl Environment {
         *self.sun.mut_coords() = self.sun.ecliptic_cartesian_coords(new_day);
         *self.earth.mut_coords() = self.earth.ecliptic_cartesian_coords(new_day);
         // Calculate new location for moon and convert to heliocentric coords
-        *self.moon.mut_coords() = self.moon.ecliptic_cartesian_coords(new_day) + self.earth.get_coords();
-
+        *self.moon.mut_coords() =
+            self.moon.ecliptic_cartesian_coords(new_day) + self.earth.get_coords();
     }
 
-    /// Hard update on all solar objects within the simulation. 
-    /// 
+    /// Hard update on all solar objects within the simulation.
+    ///
     /// ### Argument
     /// 'sim_params" - Simulation parameters gathered at invocation time
     ///
-    fn update(&mut self, sim_params: &SimulationParameters) {  
-
+    fn update(&mut self, sim_params: &SimulationParameters) {
         self.last_day_update_s = self.sim_time_s;
 
         // Calculate postions at current time (postions at future time, TODO optimise)
         let new_time = self.start_time + Duration::seconds(self.sim_time_s as i64);
         self.update_solar_objs(&new_time);
-
 
         // Set the corresponding last and current coords
         self.last_sun_coords = self.sun.coords;
@@ -139,24 +136,21 @@ impl Environment {
         self.last_moon_coords = self.moon.coords;
         self.current_moon_coords = self.moon.coords;
 
-
-        self.future_day_update_s = self.sim_time_s + (sim_params.sim_solar_step as f64);      
+        self.future_day_update_s = self.sim_time_s + (sim_params.sim_solar_step as f64);
 
         // Calculate new positions at future time
         let future_time = self.start_time + Duration::seconds(self.future_day_update_s as i64);
         self.update_solar_objs(&future_time);
-
     }
 
-    /// Advance the simulation by the simulation step time. This function will force a hard update on 
-    /// all solar objects within the simulation if current simulation time exceeds or is equal to future 
+    /// Advance the simulation by the simulation step time. This function will force a hard update on
+    /// all solar objects within the simulation if current simulation time exceeds or is equal to future
     /// simulation time. In between hard environment updates, positions of all solar objects are linearly interpolated.
     ///
     /// ### Argument
     /// 'sim_params" - Simulation parameters gathered at invocation time
     ///
-    pub fn advance_simulation_environment(&mut self, sim_params: &SimulationParameters){
-
+    pub fn advance_simulation_environment(&mut self, sim_params: &SimulationParameters) {
         // Advance the simulation environment by configured simulation time step
         self.sim_time_s += sim_params.sim_time_step as f64;
         // Perform a hard update if advanced current simulation time would exceed future simulation time
@@ -167,15 +161,19 @@ impl Environment {
         }
 
         // Precise method, which guarantees v = v1 when t = 1.
-        let interp_method = |v0: &Array3d, v1: &Array3d, t: f64| -> Array3d {((1f64 - t) * v0) + (t * v1)};
+        let interp_method =
+            |v0: &Array3d, v1: &Array3d, t: f64| -> Array3d { ((1f64 - t) * v0) + (t * v1) };
 
         // Perform a linear interpolation from the current solar object coords to the future solar coords
-        let interp_point = (self.sim_time_s - self.last_day_update_s) / (self.future_day_update_s - self.last_day_update_s);
+        let interp_point = (self.sim_time_s - self.last_day_update_s)
+            / (self.future_day_update_s - self.last_day_update_s);
 
-        self.current_sun_coords = interp_method(&self.last_sun_coords,&self.sun.coords, interp_point);
-        self.current_earth_coords = interp_method(&self.last_earth_coords,&self.earth.coords, interp_point);
-        self.current_moon_coords = interp_method(&self.last_moon_coords,&self.moon.coords, interp_point);
-
+        self.current_sun_coords =
+            interp_method(&self.last_sun_coords, &self.sun.coords, interp_point);
+        self.current_earth_coords =
+            interp_method(&self.last_earth_coords, &self.earth.coords, interp_point);
+        self.current_moon_coords =
+            interp_method(&self.last_moon_coords, &self.moon.coords, interp_point);
     }
 
     /// Calculate the absolute coordinates for the simulation object
@@ -186,12 +184,12 @@ impl Environment {
     /// ### Return
     /// The absolute coordinates for the input simulation object.
     ///
-    pub fn calculate_abs_coords(&self, sim_obj: &SimobjT) -> Array3d{
+    pub fn calculate_abs_coords(&self, sim_obj: &SimobjT) -> Array3d {
         match sim_obj.soi {
-            Solarobj::Sun { attr: _, .. } => { self.current_sun_coords + sim_obj.coords }
-            Solarobj::Earth { attr: _, .. } => { self.current_earth_coords + sim_obj.coords }
+            Solarobj::Sun { attr: _, .. } => self.current_sun_coords + sim_obj.coords,
+            Solarobj::Earth { attr: _, .. } => self.current_earth_coords + sim_obj.coords,
             // Lunar coords are abs also
-            Solarobj::Moon { attr: _, .. } => { self.current_moon_coords + sim_obj.coords}
+            Solarobj::Moon { attr: _, .. } => self.current_moon_coords + sim_obj.coords,
         }
     }
 
@@ -238,7 +236,7 @@ impl Environment {
             current_earth_coords: earth_precalc.coords,
             moon: moon_precalc.clone(),
             last_moon_coords: moon_precalc.coords,
-            current_moon_coords: moon_precalc.coords
+            current_moon_coords: moon_precalc.coords,
         };
 
         // This forces a hard update which calculates future locations of solar bodies
@@ -252,11 +250,11 @@ impl Environment {
         self.sim_time_s
     }
 
-    pub fn calculate_earth_orbital_velocity_ins() -> Array3d{
+    pub fn calculate_earth_orbital_velocity_ins() -> Array3d {
         todo!()
     }
 
-    pub fn calculate_lunar_orbital_velocity_ins() -> Array3d{
+    pub fn calculate_lunar_orbital_velocity_ins() -> Array3d {
         todo!()
     }
 
@@ -372,7 +370,10 @@ pub struct Sun {
 
 /// Provides utilities for calculating planetary bodies with a Kepler model
 mod kepler_utilities {
-    use crate::{bodies::{PlanetPS, EARTH_RADII_PER_ASTRONOMICAL_UNIT}, types::Array3d};
+    use crate::{
+        bodies::{PlanetPS, EARTH_RADII_PER_ASTRONOMICAL_UNIT},
+        types::Array3d,
+    };
     use std::f64::{self, consts};
 
     /// Calculate the eccentric anomaly for a given body.
@@ -492,11 +493,7 @@ pub trait KeplerModel {
     fn ecliptic_cartesian_coords(&self, day: f64) -> Array3d;
 
     fn perturb(&self, x: f64, y: f64, z: f64, _day: f64) -> Array3d {
-        Array3d {
-            x,
-            y,
-            z,
-        }
+        Array3d { x, y, z }
     }
 
     fn distance_between_sim_object(&self, sim_obj: &SimobjT) -> Array3d;
@@ -560,11 +557,7 @@ impl KeplerModel for PlanetPS {
     fn perturb(&self, x: f64, y: f64, z: f64, day: f64) -> Array3d {
         match &self.solartype {
             Solarobj::Moon { attr: _ } => kepler_utilities::lunar_pertub(self, x, y, z, day),
-            _ => Array3d {
-                x,
-                y,
-                z
-            },
+            _ => Array3d { x, y, z },
         }
     }
 
@@ -636,11 +629,7 @@ impl KeplerModel for Earth {
         y *= AU_METER;
 
         // the Earth's center is always on the plane of the ecliptic (z=0), by definition!
-        Array3d {
-            x,
-            y,
-            z: 0f64,
-        }
+        Array3d { x, y, z: 0f64 }
     }
 
     fn get_coords(&self) -> &Array3d {
@@ -779,7 +768,7 @@ fn make_moon(day: f64, earth_coords: &Array3d) -> PlanetPS {
         mag_nonlinear_exponent: 4f64,
     };
 
-    // Calculate the location of the moon and convert to heliocentric coords 
+    // Calculate the location of the moon and convert to heliocentric coords
     moon_body.coords = moon_body.ecliptic_cartesian_coords(day) + earth_coords;
 
     moon_body

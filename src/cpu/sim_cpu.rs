@@ -1,8 +1,8 @@
-use crate::bodies;
-use bodies::{Simobj, KeplerModel};
-use crate::output;
-use input::SimulationParameters;
 use self::cowell_perturb::apply_perturbations;
+use crate::bodies;
+use crate::output;
+use bodies::{KeplerModel, Simobj};
+use input::SimulationParameters;
 use std::string::ToString;
 use strum_macros::Display;
 use types::Array3d;
@@ -88,7 +88,6 @@ fn write_out_all_object_parameters(
     }
 }
 
-
 fn l2_norm(x: &Array3d) -> f64 {
     x.dot(x).sqrt()
 }
@@ -98,19 +97,19 @@ fn normalize(x: &Array3d, l2_norm_precalc: Option<f64>) -> Array3d {
         Some(val) => val,
         None => l2_norm(x),
     };
-    
-    Array3d{
+
+    Array3d {
         x: x.x / norm,
         y: x.y / norm,
-        z: x.z / norm
+        z: x.z / norm,
     }
 }
 
 /// Module used to apply perturbation calculations on individual bodies
 mod cowell_perturb {
-    use crate::bodies;
-    use super::{Perturbation, PerturbationDelta};
     use super::{l2_norm, normalize, G};
+    use super::{Perturbation, PerturbationDelta};
+    use crate::bodies;
     use bodies::Solarobj;
     use types::Array3d;
 
@@ -135,11 +134,10 @@ mod cowell_perturb {
         step_time_s: f64,
         do_return_perturb: bool,
     ) -> Option<Vec<Perturbation>> {
-
-        let mut net_acceleration = Array3d{
+        let mut net_acceleration = Array3d {
             x: 0.0,
             y: 0.0,
-            z: 0.0
+            z: 0.0,
         };
 
         // Calculate the pertubation forces for all planetary objects
@@ -230,8 +228,7 @@ mod cowell_perturb {
                 .distance_to(sim_obj, planet_idx)
                 .expect("Expected in range environment access, invalid index provided.");
             // Calculate gravity field at position of sim object from planet body
-            let mut grav_accel =
-                newton_gravitational_field(&distance_vector, planet_idx, env);
+            let mut grav_accel = newton_gravitational_field(&distance_vector, planet_idx, env);
 
             let solar_obj = env
                 .get_solar_objects()
@@ -250,18 +247,15 @@ mod cowell_perturb {
                             .expect("Expected in range environment access, invalid index provided")
                             .get_coords();
                         let current_obj_coords = solar_obj.get_coords();
-                        Array3d{
+                        Array3d {
                             x: current_obj_coords.xh - centric_obj_coords.xh,
                             y: current_obj_coords.yh - centric_obj_coords.yh,
-                            z: current_obj_coords.zh - centric_obj_coords.zh
+                            z: current_obj_coords.zh - centric_obj_coords.zh,
                         }
                     };
                     // Calculate gravity field at position of centric
-                    let centric_grav = newton_gravitational_field(
-                        &centric_sun_dist_vector,
-                        planet_idx,
-                        env,
-                    );
+                    let centric_grav =
+                        newton_gravitational_field(&centric_sun_dist_vector, planet_idx, env);
 
                     // Subtract centric from current
                     grav_accel = grav_accel - centric_grav; // Grav accel on centric
@@ -272,7 +266,7 @@ mod cowell_perturb {
         }
 
         // Calculate the net acceleration on the sim object
-        let pertubation_sum: Array3d = perturbation_vec.iter().sum(); 
+        let pertubation_sum: Array3d = perturbation_vec.iter().sum();
 
         // Calculate final perturbation
         let sum_perturb = {

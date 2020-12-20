@@ -4,8 +4,10 @@
 
 use bodies::{Environment, SimobjT};
 
-#[macro_use] mod macros;
-#[macro_use] extern crate impl_ops;
+#[macro_use]
+mod macros;
+#[macro_use]
+extern crate impl_ops;
 
 extern crate chrono;
 extern crate clap;
@@ -72,7 +74,7 @@ mod cli {
 /// * 'env' - Simulation environment
 /// * 'sim_objs' - Array slice of simulation objects
 ///
-fn init_simulation_objects(env: &Environment, sim_objs: &[SimobjT]){
+fn init_simulation_objects(env: &Environment, sim_objs: &[SimobjT]) {
     for sim_obj in sim_objs {
         env.calculate_abs_coords(sim_obj);
     }
@@ -92,5 +94,4 @@ fn main() {
     ));
 
     //cpu::sim_cpu::simulate(sim_bodies, env, output_controller, sim_params);
-
 }
