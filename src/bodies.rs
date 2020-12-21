@@ -52,7 +52,7 @@ impl SimobjT {
         }
     }
 
-    fn to_output_form(&self, sim_time: f64) -> output::SimulationObjectParameters {
+    pub fn to_output_form(&self, sim_time: f64) -> output::SimulationObjectParameters {
         let abs_coords = &self.coords_abs;
         let coords = &self.coords;
         let velocity = &self.velocity;
@@ -82,13 +82,13 @@ pub struct Environment {
     // All solar bodies below are synced to future time
     pub sun: Sun,
     last_sun_coords: Array3d,
-    current_sun_coords: Array3d,
+    pub current_sun_coords: Array3d,
     pub earth: Earth,
     last_earth_coords: Array3d,
-    current_earth_coords: Array3d,
+    pub current_earth_coords: Array3d,
     pub moon: PlanetPS,
     last_moon_coords: Array3d,
-    current_moon_coords: Array3d,
+    pub current_moon_coords: Array3d,
 }
 
 impl Environment {

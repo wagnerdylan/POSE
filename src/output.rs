@@ -1,6 +1,9 @@
 use serde::Serialize;
 
-use crate::bodies::{self, KeplerModel};
+use crate::{
+    bodies::{self, KeplerModel},
+    cpu::sim_cpu,
+};
 
 #[derive(Debug, Serialize)]
 pub struct SolarObjectOut {
@@ -122,4 +125,23 @@ pub fn write_out_all_solar_objects(
     output_controller.write_out_solar_object(env.sun_to_output_form());
     output_controller.write_out_solar_object(env.earth_to_output_form());
     output_controller.write_out_solar_object(env.moon_to_output_form());
+}
+
+pub fn write_out_all_perturbations(
+    perturbations: &mut Vec<sim_cpu::Perturbation>,
+    output_controller: &mut dyn SimulationOutput,
+) {
+    for perturbation in perturbations {
+        output_controller.write_out_perturbation(perturbation.to_output_form());
+    }
+}
+
+pub fn write_out_all_object_parameters(
+    env: &bodies::Environment,
+    sim_objects: &[bodies::SimobjT],
+    output_controller: &mut dyn SimulationOutput,
+) {
+    for sim_obj in sim_objects {
+        output_controller.write_out_object_parameters(sim_obj.to_output_form(env.get_sim_time()));
+    }
 }

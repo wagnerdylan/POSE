@@ -18,7 +18,7 @@ extern crate strum;
 extern crate strum_macros;
 
 mod bodies;
-//mod cpu;
+mod cpu;
 mod input;
 mod output;
 mod types;
@@ -74,9 +74,9 @@ mod cli {
 /// * 'env' - Simulation environment
 /// * 'sim_objs' - Array slice of simulation objects
 ///
-fn init_simulation_objects(env: &Environment, sim_objs: &[SimobjT]) {
+fn init_simulation_objects(env: &Environment, sim_objs: &mut Vec<SimobjT>) {
     for sim_obj in sim_objs {
-        env.calculate_abs_coords(sim_obj);
+        sim_obj.coords_abs = env.calculate_abs_coords(sim_obj);
     }
 }
 
@@ -84,14 +84,14 @@ fn main() {
     let matches = cli::check_cli();
     let sim_params = input::gather_program_arguments(matches);
 
-    let (sim_bodies, start_time) = input::parse_input(sim_params.input_bodies_json.as_str());
+    let (mut sim_bodies, start_time) = input::parse_input(sim_params.input_bodies_json.as_str());
     let env = bodies::Environment::new(start_time, &sim_params);
 
-    init_simulation_objects(&env, &sim_bodies);
+    init_simulation_objects(&env, &mut sim_bodies);
 
     let output_controller = Box::new(output::csv_output::CSVController::new(
         sim_params.output_dir.as_str(),
     ));
 
-    //cpu::sim_cpu::simulate(sim_bodies, env, output_controller, sim_params);
+    cpu::sim_cpu::simulate(sim_bodies, env, output_controller, sim_params);
 }
