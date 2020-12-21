@@ -5,6 +5,7 @@ use std::string::ToString;
 use strum_macros::Display;
 use types::Array3d;
 
+use super::earth;
 use super::sol;
 
 // Gravitational constant 6.674×10−11
@@ -90,12 +91,16 @@ pub fn apply_perturbations(
     sim_obj: &mut bodies::SimobjT,
     env: &bodies::Environment,
     step_time_s: f64,
-    perturbations_out: Option<&mut Vec<Perturbation>>,
+    perturbations_out: &mut Option<&mut Vec<Perturbation>>,
 ) {
+    sim_obj.coords_abs = env.calculate_abs_coords(sim_obj);
+
     let mut net_acceleration = Array3d::default();
     // Calculate the pertubation forces for all planetary objects
     net_acceleration = net_acceleration
         + sol::calculate_solar_perturbations(sim_obj, env, perturbations_out).acceleration;
+    net_acceleration = net_acceleration
+        + earth::calculate_earth_perturbations(sim_obj, env, perturbations_out).acceleration;
 
     // Calculate the velocity change from net acceleration
     let velocity_delta = net_acceleration * step_time_s;
@@ -110,7 +115,6 @@ pub fn apply_perturbations(
     // Update the new values within the simulation object
     sim_obj.velocity = updated_sim_obj_velocity;
     sim_obj.coords = updated_sim_obj_coords;
-    sim_obj.coords_abs = env.calculate_abs_coords(sim_obj);
 }
 
 /// Main entry point into the cpu_sim module, gathers all needed data for orbit modeling
@@ -131,7 +135,7 @@ pub fn simulate(
                 sim_obj,
                 &env,
                 sim_params.sim_time_step as f64,
-                Some(&mut perturbation_vec),
+                &mut Some(&mut perturbation_vec),
             );
             output::write_out_all_perturbations(&mut perturbation_vec, output_controller.as_mut());
         }

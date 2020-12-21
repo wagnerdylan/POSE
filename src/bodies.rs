@@ -490,8 +490,6 @@ pub trait KeplerModel {
         Array3d { x, y, z }
     }
 
-    fn distance_between_sim_object(&self, sim_obj: &SimobjT) -> Array3d;
-
     fn get_coords(&self) -> &Array3d;
 
     fn mut_coords(&mut self) -> &mut Array3d;
@@ -566,10 +564,6 @@ impl KeplerModel for PlanetPS {
     fn get_solar_object(&self) -> &Solarobj {
         &self.solartype
     }
-
-    fn distance_between_sim_object(&self, sim_obj: &SimobjT) -> Array3d {
-        self.coords - sim_obj.coords_abs
-    }
 }
 
 impl PlanetPS {
@@ -637,10 +631,6 @@ impl KeplerModel for Earth {
     fn get_solar_object(&self) -> &Solarobj {
         &self.solartype
     }
-
-    fn distance_between_sim_object(&self, sim_obj: &SimobjT) -> Array3d {
-        self.coords - sim_obj.coords_abs
-    }
 }
 
 impl KeplerModel for Sun {
@@ -662,10 +652,6 @@ impl KeplerModel for Sun {
 
     fn get_solar_object(&self) -> &Solarobj {
         &self.solartype
-    }
-
-    fn distance_between_sim_object(&self, sim_obj: &SimobjT) -> Array3d {
-        self.coords - sim_obj.coords_abs
     }
 }
 
