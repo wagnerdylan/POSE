@@ -140,5 +140,7 @@ pub fn simulate(
         output::write_out_all_solar_objects(&env, output_controller.as_mut());
 
         env.advance_simulation_environment(&sim_params);
+
+        perturbation_vec.clear();
     }
 }

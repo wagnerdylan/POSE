@@ -60,7 +60,6 @@ fn calculate_solar_gravity_perturbation(
 /// * 'env' - Simulation environment
 /// * 'perturbations_out' - Array of individual perturbations wrapped in a option.
 ///    This array should be appended to if option value is some
-/// * 'step_time_s' - Simulation step time
 ///
 /// ### Returns
 /// Combined perturbations
