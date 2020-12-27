@@ -5,8 +5,8 @@ use std::string::ToString;
 use strum_macros::Display;
 use types::Array3d;
 
-use super::earth;
 use super::sol;
+use super::{earth, moon};
 
 // Gravitational constant 6.674×10−11
 const G: f64 = 6.674e-11;
@@ -101,6 +101,8 @@ pub fn apply_perturbations(
         + sol::calculate_solar_perturbations(sim_obj, env, perturbations_out).acceleration;
     net_acceleration = net_acceleration
         + earth::calculate_earth_perturbations(sim_obj, env, perturbations_out).acceleration;
+    net_acceleration = net_acceleration
+        + moon::calculate_moon_perturbations(sim_obj, env, perturbations_out).acceleration;
 
     // Calculate the velocity change from net acceleration
     let velocity_delta = net_acceleration * step_time_s;
