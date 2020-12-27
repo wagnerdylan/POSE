@@ -1,6 +1,5 @@
 use crate::output;
 use crate::{bodies, input};
-use output::write_out_all_perturbations;
 use std::string::ToString;
 use strum_macros::Display;
 use types::Array3d;
@@ -127,7 +126,9 @@ pub fn simulate(
     mut output_controller: Box<dyn output::SimulationOutput>,
     sim_params: input::SimulationParameters,
 ) {
-    let mut perturbation_vec: Vec<Perturbation> = Vec::with_capacity(MAX_NUM_OF_PERTURBATIONS);
+    // Allocate large buffer for holding perturbations
+    let mut perturbation_vec: Vec<Perturbation> =
+        Vec::with_capacity(sim_bodies.len() * MAX_NUM_OF_PERTURBATIONS);
 
     loop {
         // Calculate and apply perturbations for every object
@@ -139,11 +140,11 @@ pub fn simulate(
                 sim_params.sim_time_step as f64,
                 &mut Some(&mut perturbation_vec),
             );
-            output::write_out_all_perturbations(&mut perturbation_vec, output_controller.as_mut());
         }
 
         output::write_out_all_object_parameters(&env, &sim_bodies, output_controller.as_mut());
         output::write_out_all_solar_objects(&env, output_controller.as_mut());
+        output::write_out_all_perturbations(&mut perturbation_vec, output_controller.as_mut());
 
         env.advance_simulation_environment(&sim_params);
 
