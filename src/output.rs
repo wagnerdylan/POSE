@@ -128,7 +128,7 @@ pub fn write_out_all_solar_objects(
 }
 
 pub fn write_out_all_perturbations(
-    perturbations: &mut Vec<sim_cpu::Perturbation>,
+    perturbations: &mut [sim_cpu::Perturbation],
     output_controller: &mut dyn SimulationOutput,
 ) {
     for perturbation in perturbations {
