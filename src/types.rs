@@ -30,18 +30,7 @@ impl<'a> Sum<&'a Self> for Array3d {
     where
         I: Iterator<Item = &'a Self>,
     {
-        iter.fold(
-            Self {
-                x: 0.0,
-                y: 0.0,
-                z: 0.0,
-            },
-            |acc, x| Self {
-                x: acc.x + x.x,
-                y: acc.y + x.y,
-                z: acc.z + x.z,
-            },
-        )
+        iter.fold(Self::default(), |acc, x| acc + x)
     }
 }
 
