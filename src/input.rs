@@ -2,10 +2,7 @@ use super::bodies;
 
 use chrono::DateTime;
 use clap::ArgMatches;
-use std::error::Error;
-use std::fs::File;
-use std::io::BufReader;
-use std::path::Path;
+use std::{error::Error, fs::File, io::BufReader, path::Path};
 
 pub struct SimulationParameters {
     pub input_bodies_json: String,

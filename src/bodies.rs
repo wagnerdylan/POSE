@@ -1,4 +1,4 @@
-use crate::{input::SimulationParameters, output};
+use crate::{input::SimulationParameters, output, types};
 use chrono::{DateTime, Duration, TimeZone, Utc};
 use serde::{Deserialize, Serialize};
 use strum_macros::Display;
@@ -244,12 +244,92 @@ impl Environment {
         self.sim_time_s
     }
 
-    pub fn calculate_earth_orbital_velocity_ins() -> Array3d {
+    fn calculate_earth_orbital_velocity_ins() -> Array3d {
         todo!()
     }
 
-    pub fn calculate_lunar_orbital_velocity_ins() -> Array3d {
+    fn calculate_lunar_orbital_velocity_ins() -> Array3d {
         todo!()
+    }
+
+    fn check_is_within_earth_hill_sphere(&self, sim_obj: &mut SimobjT) -> bool {
+        let distance_to_earth = types::l2_norm(&(sim_obj.coords_abs - self.current_earth_coords));
+
+        distance_to_earth <= EARTH_HILL_SPHERE_RADIUS
+    }
+
+    fn check_is_within_lunar_hill_sphere(&self, sim_obj: &mut SimobjT) -> bool {
+        let distance_to_moon = types::l2_norm(&(sim_obj.coords_abs - self.current_moon_coords));
+
+        distance_to_moon <= LUNAR_HILL_SPHERE_RADIUS
+    }
+
+    fn switch_to_solar_soi(&self, sim_obj: &mut SimobjT) {
+        todo!()
+    }
+
+    fn switch_to_earth_soi(&self, sim_obj: &mut SimobjT) {
+        todo!()
+    }
+
+    fn switch_to_lunar_soi(&self, sim_obj: &mut SimobjT) {
+        todo!()
+    }
+
+    /// Check if the simulation object is in the solar objects orbital band. If so, refine the check by checking the
+    /// distance to the solar object in question. If the simulation object is within the hill sphere radius of the
+    /// solar object in question, switch to that SOI.
+    ///
+    /// ### Argument
+    /// * 'sim_object' - The simulation object to be checked
+    ///
+    pub fn check_switch_soi(&self, sim_obj: &mut SimobjT) {
+        match sim_obj.soi {
+            // If the simulation object is in the solar sphere of influence, check if the simulation object is
+            // Solar Object perihelion - Solar Object Hill Sphere < sim obj < Solar Object aphelion + Solar Object Hill Sphere
+            Solarobj::Sun { attr } => {
+                let sim_distance_to_sun =
+                    types::l2_norm(&(sim_obj.coords_abs - self.current_sun_coords));
+
+                if in_range!(
+                    EARTH_PERIHELION - EARTH_HILL_SPHERE_RADIUS,
+                    EARTH_APHELION + EARTH_HILL_SPHERE_RADIUS,
+                    sim_distance_to_sun
+                ) && self.check_is_within_earth_hill_sphere(sim_obj)
+                {
+                    self.switch_to_earth_soi(sim_obj);
+                    // Recursive call to handle bodies within switched soi
+                    self.check_switch_soi(sim_obj);
+                }
+            }
+            Solarobj::Earth { attr } => {
+                let sim_distance_to_earth =
+                    types::l2_norm(&(sim_obj.coords_abs - self.current_earth_coords));
+
+                if sim_distance_to_earth > EARTH_HILL_SPHERE_RADIUS {
+                    self.switch_to_solar_soi(sim_obj);
+                    // Recursive call to handle bodies within switched soi
+                    self.check_switch_soi(sim_obj);
+                } else if in_range!(
+                    MOON_PERIHELION - MOON_HILL_SPHERE_RADIUS,
+                    MOON_APHELION + MOON_HILL_SPHERE_RADIUS,
+                    sim_distance_to_earth
+                ) && self.check_is_within_lunar_hill_sphere(sim_obj)
+                {
+                    self.switch_to_lunar_soi(sim_obj);
+                }
+            }
+            Solarobj::Moon { attr } => {
+                let sim_distance_to_moon =
+                    types::l2_norm(&(sim_obj.coords_abs - self.current_moon_coords));
+
+                if sim_distance_to_moon > LUNAR_HILL_SPHERE_RADIUS {
+                    self.switch_to_earth_soi(sim_obj);
+                    // Recursive call to handle bodies within switched soi
+                    self.check_switch_soi(sim_obj);
+                }
+            }
+        }
     }
 
     /// Convert solar data into output form

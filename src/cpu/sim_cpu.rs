@@ -1,11 +1,9 @@
-use crate::output;
-use crate::{bodies, input};
+use crate::{bodies, input, output, types};
 use std::string::ToString;
 use strum_macros::Display;
 use types::Array3d;
 
-use super::sol;
-use super::{earth, moon};
+use super::{earth, moon, sol};
 
 // Gravitational constant 6.674×10−11
 const G: f64 = 6.674e-11;
@@ -61,27 +59,10 @@ impl Perturbation {
     }
 }
 
-pub fn l2_norm(x: &Array3d) -> f64 {
-    x.dot(x).sqrt()
-}
-
-pub fn normalize(x: &Array3d, l2_norm_precalc: Option<f64>) -> Array3d {
-    let norm = match l2_norm_precalc {
-        Some(val) => val,
-        None => l2_norm(x),
-    };
-
-    Array3d {
-        x: x.x / norm,
-        y: x.y / norm,
-        z: x.z / norm,
-    }
-}
-
 pub fn newton_gravitational_field(distance_vector: &Array3d, planet_mass_kg: f64) -> Array3d {
-    let l2_dist = l2_norm(distance_vector);
+    let l2_dist = types::l2_norm(distance_vector);
     // Calculate unit vector for perturbation
-    let unit_vector = normalize(distance_vector, Some(l2_dist));
+    let unit_vector = types::normalize(distance_vector, Some(l2_dist));
     // Calculate force using Newton's law of universal gravitation
     unit_vector * (-G * (planet_mass_kg / l2_dist.powi(2)))
 }
