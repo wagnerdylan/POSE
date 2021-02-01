@@ -10,6 +10,13 @@ const EARTH_RADII_PER_ASTRONOMICAL_UNIT: f64 =
     METERS_PER_ASTRONOMICAL_UNIT / METERS_PER_EARTH_EQUATORIAL_RADIUS; // 23454.78
 const AU_METER: f64 = 1.496e+11;
 
+// Hill Sphere source
+// Title: Gravitational Spheres of the Major Planets, Moon and Sun
+// Journal: Soviet Astronomy, Vol. 7, p.618
+// Authors: Chebotarev, G. A.
+const EARTH_HILL_SPHERE_RADIUS: f64 = 0.01001 * AU_METER;
+const LUNAR_HILL_SPHERE_RADIUS: f64 = 58050000.0;
+
 #[derive(Serialize, Deserialize)]
 pub struct InitData {
     pub date: String,             // Datetime in ISO 8601 format
@@ -264,70 +271,86 @@ impl Environment {
         distance_to_moon <= LUNAR_HILL_SPHERE_RADIUS
     }
 
-    fn switch_to_solar_soi(&self, sim_obj: &mut SimobjT) {
-        todo!()
+    fn switch_in_soi(
+        sim_obj: &mut SimobjT,
+        to_soi: Solarobj,
+        soi_coords: &Array3d,
+        soi_velocity: &Array3d,
+    ) {
+        sim_obj.coords = sim_obj.coords - soi_coords;
+        sim_obj.velocity = sim_obj.velocity - soi_velocity;
+        sim_obj.soi = to_soi;
     }
 
-    fn switch_to_earth_soi(&self, sim_obj: &mut SimobjT) {
-        todo!()
+    fn switch_out_soi(
+        sim_obj: &mut SimobjT,
+        to_soi: Solarobj,
+        soi_coords: &Array3d,
+        soi_velocity: &Array3d,
+    ) {
+        sim_obj.coords = sim_obj.coords + soi_coords;
+        sim_obj.velocity = sim_obj.velocity + soi_velocity;
+        sim_obj.soi = to_soi;
     }
 
-    fn switch_to_lunar_soi(&self, sim_obj: &mut SimobjT) {
-        todo!()
-    }
-
-    /// Check if the simulation object is in the solar objects orbital band. If so, refine the check by checking the
-    /// distance to the solar object in question. If the simulation object is within the hill sphere radius of the
-    /// solar object in question, switch to that SOI.
+    /// If the simulation object is within the hill sphere radius of the solar object in question, switch to that SOI.
     ///
     /// ### Argument
     /// * 'sim_object' - The simulation object to be checked
     ///
     pub fn check_switch_soi(&self, sim_obj: &mut SimobjT) {
         match sim_obj.soi {
-            // If the simulation object is in the solar sphere of influence, check if the simulation object is
-            // Solar Object perihelion - Solar Object Hill Sphere < sim obj < Solar Object aphelion + Solar Object Hill Sphere
-            Solarobj::Sun { attr } => {
-                let sim_distance_to_sun =
-                    types::l2_norm(&(sim_obj.coords_abs - self.current_sun_coords));
-
-                if in_range!(
-                    EARTH_PERIHELION - EARTH_HILL_SPHERE_RADIUS,
-                    EARTH_APHELION + EARTH_HILL_SPHERE_RADIUS,
-                    sim_distance_to_sun
-                ) && self.check_is_within_earth_hill_sphere(sim_obj)
-                {
-                    self.switch_to_earth_soi(sim_obj);
+            Solarobj::Sun { attr: _ } => {
+                if self.check_is_within_earth_hill_sphere(sim_obj) {
+                    Self::switch_in_soi(
+                        sim_obj,
+                        Solarobj::Earth { attr: None },
+                        &self.current_earth_coords,
+                        &Self::calculate_earth_orbital_velocity_ins(),
+                    );
                     // Recursive call to handle bodies within switched soi
                     self.check_switch_soi(sim_obj);
                 }
             }
-            Solarobj::Earth { attr } => {
+            Solarobj::Earth { attr: _ } => {
                 let sim_distance_to_earth =
                     types::l2_norm(&(sim_obj.coords_abs - self.current_earth_coords));
 
+                // If the simulation object is outside of the earth hill sphere set the soi to solar
                 if sim_distance_to_earth > EARTH_HILL_SPHERE_RADIUS {
-                    self.switch_to_solar_soi(sim_obj);
-                    // Recursive call to handle bodies within switched soi
+                    Self::switch_out_soi(
+                        sim_obj,
+                        Solarobj::Sun { attr: None },
+                        &(self.current_earth_coords - self.current_sun_coords),
+                        &Self::calculate_earth_orbital_velocity_ins(),
+                    );
+                    // Recursive call to handle bodies within switched soi, used for overshoots/teleportation
                     self.check_switch_soi(sim_obj);
-                } else if in_range!(
-                    MOON_PERIHELION - MOON_HILL_SPHERE_RADIUS,
-                    MOON_APHELION + MOON_HILL_SPHERE_RADIUS,
-                    sim_distance_to_earth
-                ) && self.check_is_within_lunar_hill_sphere(sim_obj)
-                {
-                    self.switch_to_lunar_soi(sim_obj);
+                } else if self.check_is_within_lunar_hill_sphere(sim_obj) {
+                    Self::switch_in_soi(
+                        sim_obj,
+                        Solarobj::Moon { attr: None },
+                        &self.current_moon_coords,
+                        &Self::calculate_lunar_orbital_velocity_ins(),
+                    )
                 }
             }
-            Solarobj::Moon { attr } => {
+            Solarobj::Moon { attr: _ } => {
                 let sim_distance_to_moon =
                     types::l2_norm(&(sim_obj.coords_abs - self.current_moon_coords));
 
+                // If the simulation object is outside the lunar hill sphere set the soi to earth
                 if sim_distance_to_moon > LUNAR_HILL_SPHERE_RADIUS {
-                    self.switch_to_earth_soi(sim_obj);
-                    // Recursive call to handle bodies within switched soi
+                    Self::switch_out_soi(
+                        sim_obj,
+                        Solarobj::Earth { attr: None },
+                        &(self.current_moon_coords - self.current_earth_coords),
+                        &Self::calculate_lunar_orbital_velocity_ins(),
+                    );
+                    // Recursive call to handle bodies within switched soi, used for overshoots/teleportation
                     self.check_switch_soi(sim_obj);
                 }
+                // Moon has no solar bodies orbiting it
             }
         }
     }
