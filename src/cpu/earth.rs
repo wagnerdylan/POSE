@@ -22,7 +22,9 @@ fn calculate_earth_gravity_perturbation(
     let soi_compensation = match sim_obj.soi {
         bodies::Solarobj::Sun { attr: _ } => None,
         bodies::Solarobj::Earth { attr: _ } => None,
-        bodies::Solarobj::Moon { attr: _ } => Some(env.current_moon_coords),
+        bodies::Solarobj::Moon { attr: _ } => {
+            Some(env.current_moon_coords - env.current_earth_coords)
+        }
     };
 
     // Calculate the difference between the field on simulation object and solar object

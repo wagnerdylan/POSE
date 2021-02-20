@@ -121,6 +121,9 @@ pub fn simulate(
                 sim_params.sim_time_step as f64,
                 &mut Some(&mut perturbation_vec),
             );
+
+            // TODO only call this every so often
+            env.check_switch_soi(sim_obj);
         }
 
         output::write_out_all_object_parameters(&env, &sim_bodies, output_controller.as_mut());
