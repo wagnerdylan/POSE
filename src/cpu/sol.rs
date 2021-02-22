@@ -9,7 +9,7 @@ fn calculate_solar_gravity_perturbation(
     perturbations_out: &mut Option<&mut Vec<sim_cpu::Perturbation>>,
 ) -> sim_cpu::PerturbationDelta {
     // Calculate distance between the sun and the sim object using absolute coordinates
-    let distance_vector_sim_obj = sim_obj.coords_abs - env.current_sun_coords;
+    let distance_vector_sim_obj = sim_obj.coords_abs - env.sun.coords.current_coords;
 
     // Calculate acceleration due to the sun at the location of the simulation object
     let mut gravity_accel = sim_cpu::newton_gravitational_field(
@@ -22,10 +22,10 @@ fn calculate_solar_gravity_perturbation(
     let soi_compensation = match sim_obj.soi {
         bodies::Solarobj::Sun { attr: _ } => None,
         bodies::Solarobj::Earth { attr: _ } => {
-            Some(env.current_earth_coords - env.current_sun_coords)
+            Some(env.earth.coords.current_coords - env.sun.coords.current_coords)
         }
         bodies::Solarobj::Moon { attr: _ } => {
-            Some(env.current_moon_coords - env.current_sun_coords)
+            Some(env.moon.coords.current_coords - env.sun.coords.current_coords)
         }
     };
 

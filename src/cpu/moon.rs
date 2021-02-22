@@ -9,7 +9,7 @@ fn calculate_moon_gravity_perturbation(
     perturbations_out: &mut Option<&mut Vec<sim_cpu::Perturbation>>,
 ) -> sim_cpu::PerturbationDelta {
     // Calculate distance between the moon and the sim object using absolute coordinates
-    let distance_vector_sim_obj = sim_obj.coords_abs - env.current_moon_coords;
+    let distance_vector_sim_obj = sim_obj.coords_abs - env.moon.coords.current_coords;
 
     // Calculate acceleration due to the moon at the location of the simulation object
     let gravity_accel = sim_cpu::newton_gravitational_field(

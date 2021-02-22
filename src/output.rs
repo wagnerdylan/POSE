@@ -1,9 +1,6 @@
 use serde::Serialize;
 
-use crate::{
-    bodies::{self, KeplerModel},
-    cpu::sim_cpu,
-};
+use crate::{bodies, cpu::sim_cpu};
 
 #[derive(Debug, Serialize)]
 pub struct SolarObjectOut {

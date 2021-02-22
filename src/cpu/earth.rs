@@ -9,7 +9,7 @@ fn calculate_earth_gravity_perturbation(
     perturbations_out: &mut Option<&mut Vec<sim_cpu::Perturbation>>,
 ) -> sim_cpu::PerturbationDelta {
     // Calculate distance between the earth and the sim object using absolute coordinates
-    let distance_vector_sim_obj = sim_obj.coords_abs - env.current_earth_coords;
+    let distance_vector_sim_obj = sim_obj.coords_abs - env.earth.coords.current_coords;
 
     // Calculate acceleration due to the earth at the location of the simulation object
     let mut gravity_accel = sim_cpu::newton_gravitational_field(
@@ -23,7 +23,7 @@ fn calculate_earth_gravity_perturbation(
         bodies::Solarobj::Sun { attr: _ } => None,
         bodies::Solarobj::Earth { attr: _ } => None,
         bodies::Solarobj::Moon { attr: _ } => {
-            Some(env.current_moon_coords - env.current_earth_coords)
+            Some(env.moon.coords.current_coords - env.earth.coords.current_coords)
         }
     };
 
