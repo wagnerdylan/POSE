@@ -136,6 +136,19 @@ impl Environment {
         // Calculate new positions at future time
         let future_time = self.start_time + Duration::seconds(self.future_day_update_s as i64);
         self.update_solar_objs(&future_time);
+
+        self.sun.velocity = self
+            .sun
+            .coords
+            .calc_velocity_full_range(sim_params.sim_solar_step as f64);
+        self.earth.velocity = self
+            .earth
+            .coords
+            .calc_velocity_relative_full_range(&self.sun.coords, sim_params.sim_solar_step as f64);
+        self.moon.velocity = self.moon.coords.calc_velocity_relative_full_range(
+            &self.earth.coords,
+            sim_params.sim_solar_step as f64,
+        );
     }
 
     /// Advance the simulation by the simulation step time. This function will force a hard update on
@@ -217,9 +230,9 @@ impl Environment {
             sim_time_s: 0f64,
             future_day_update_s: sim_params.sim_solar_step as f64,
             start_time,
-            sun: sun_precalc.clone(),
-            earth: earth_precalc.clone(),
-            moon: moon_precalc.clone(),
+            sun: sun_precalc,
+            earth: earth_precalc,
+            moon: moon_precalc,
         };
 
         // This forces a hard update which calculates future locations of solar bodies
@@ -231,14 +244,6 @@ impl Environment {
     /// Get simulation time in seconds
     pub fn get_sim_time(&self) -> f64 {
         self.sim_time_s
-    }
-
-    fn calculate_earth_orbital_velocity_ins() -> Array3d {
-        todo!()
-    }
-
-    fn calculate_lunar_orbital_velocity_ins() -> Array3d {
-        todo!()
     }
 
     fn check_is_within_earth_hill_sphere(&self, sim_obj: &mut SimobjT) -> bool {
@@ -290,7 +295,7 @@ impl Environment {
                         sim_obj,
                         Solarobj::Earth { attr: None },
                         &self.earth.coords.current_coords,
-                        &Self::calculate_earth_orbital_velocity_ins(),
+                        &self.earth.velocity,
                     );
                     // Recursive call to handle bodies within switched soi
                     self.check_switch_soi(sim_obj);
@@ -306,7 +311,7 @@ impl Environment {
                         sim_obj,
                         Solarobj::Sun { attr: None },
                         &(self.earth.coords.current_coords - self.sun.coords.current_coords),
-                        &Self::calculate_earth_orbital_velocity_ins(),
+                        &self.earth.velocity,
                     );
                     // Recursive call to handle bodies within switched soi, used for overshoots/teleportation
                     self.check_switch_soi(sim_obj);
@@ -315,7 +320,7 @@ impl Environment {
                         sim_obj,
                         Solarobj::Moon { attr: None },
                         &self.moon.coords.current_coords,
-                        &Self::calculate_lunar_orbital_velocity_ins(),
+                        &self.moon.velocity,
                     )
                 }
             }
@@ -329,7 +334,7 @@ impl Environment {
                         sim_obj,
                         Solarobj::Earth { attr: None },
                         &(self.moon.coords.current_coords - self.earth.coords.current_coords),
-                        &Self::calculate_lunar_orbital_velocity_ins(),
+                        &self.moon.velocity,
                     );
                     // Recursive call to handle bodies within switched soi, used for overshoots/teleportation
                     self.check_switch_soi(sim_obj);
@@ -351,6 +356,9 @@ impl Environment {
             x_coord: self.sun.coords.current_coords.x as f32,
             y_coord: self.sun.coords.current_coords.y as f32,
             z_coord: self.sun.coords.current_coords.z as f32,
+            x_velocity: self.sun.velocity.x,
+            y_velocity: self.sun.velocity.y,
+            z_velocity: self.sun.velocity.z,
         }
     }
 
@@ -366,6 +374,9 @@ impl Environment {
             x_coord: self.earth.coords.current_coords.x as f32,
             y_coord: self.earth.coords.current_coords.y as f32,
             z_coord: self.earth.coords.current_coords.z as f32,
+            x_velocity: self.earth.velocity.x,
+            y_velocity: self.earth.velocity.y,
+            z_velocity: self.earth.velocity.z,
         }
     }
 
@@ -381,6 +392,9 @@ impl Environment {
             x_coord: self.moon.coords.current_coords.x as f32,
             y_coord: self.moon.coords.current_coords.y as f32,
             z_coord: self.moon.coords.current_coords.z as f32,
+            x_velocity: self.moon.velocity.x,
+            y_velocity: self.moon.velocity.y,
+            z_velocity: self.moon.velocity.z,
         }
     }
 }
@@ -419,6 +433,7 @@ pub struct PlanetPS {
     // See  http://www.stjarnhimlen.se/comp/ppcomp.html#4
     solartype: Solarobj, // Type enum of the solar obj
     pub coords: SolarobjCoords,
+    pub velocity: Array3d,
     n0: f64,
     nc: f64, // N0 = longitude of the ascending node (deg).  Nc = rate of change in deg/day
     i0: f64,
@@ -441,12 +456,14 @@ pub struct PlanetPS {
 pub struct Earth {
     solartype: Solarobj,
     pub coords: SolarobjCoords,
+    pub velocity: Array3d,
 }
 
 #[derive(Clone)]
 pub struct Sun {
     solartype: Solarobj,
     pub coords: SolarobjCoords,
+    pub velocity: Array3d,
 }
 
 /// Provides utilities for calculating planetary bodies with a Kepler model
@@ -599,6 +616,37 @@ impl SolarobjCoords {
             |v0: &Array3d, v1: &Array3d, t: f64| -> Array3d { ((1f64 - t) * v0) + (t * v1) };
 
         self.current_coords = interp_method(&self.behind_coords, &self.ahead_coords, interp_point);
+    }
+
+    /// Calculate the velocity of the solar obj from behind to ahead coords.
+    ///
+    /// ### Arguments
+    /// * 'step_time_s' - Sim solar step time in seconds
+    ///
+    /// ### Returns
+    /// The velocity of the solar obj
+    ///
+    fn calc_velocity_full_range(&self, step_time_s: f64) -> Array3d {
+        (self.ahead_coords - self.behind_coords) / step_time_s
+    }
+
+    /// Calculate the velocity of the solar obj from behind to ahead coords.
+    ///
+    /// ### Arguments
+    /// * 'step_time_s' - Sim solar step time in seconds
+    /// * 'relative' - Solar obj relative coords
+    ///
+    /// ### Returns
+    /// The velocity of the solar obj
+    ///
+    fn calc_velocity_relative_full_range(
+        &self,
+        relative: &SolarobjCoords,
+        step_time_s: f64,
+    ) -> Array3d {
+        ((self.ahead_coords - relative.ahead_coords)
+            - (self.behind_coords - relative.behind_coords))
+            / step_time_s
     }
 }
 
@@ -761,6 +809,7 @@ fn make_sun() -> Sun {
     Sun {
         solartype: solar_trait,
         coords: SolarobjCoords::default(),
+        velocity: Array3d::default(), // Zero until sim update
     }
 }
 
@@ -783,6 +832,7 @@ fn make_earth(day: f64) -> Earth {
     let mut earth_body = Earth {
         solartype: solar_trait,
         coords: SolarobjCoords::default(),
+        velocity: Array3d::default(), // Zero until sim update
     };
 
     let initial_coords = earth_body.ecliptic_cartesian_coords(day);
@@ -812,6 +862,7 @@ fn make_moon(day: f64, earth_coords: &Array3d) -> PlanetPS {
     let mut moon_body = PlanetPS {
         solartype: solar_trait,
         coords: SolarobjCoords::default(),
+        velocity: Array3d::default(), // Zero until sim update
         n0: 125.1228,
         nc: -0.0529538083,
         i0: 5.1454,

@@ -4,11 +4,14 @@ use crate::{bodies, cpu::sim_cpu};
 
 #[derive(Debug, Serialize)]
 pub struct SolarObjectOut {
-    pub name: String,  // Name of the solar object
-    pub sim_time: f64, // Simulation time
-    pub x_coord: f32,  // Coordinate of object in the x axis
-    pub y_coord: f32,  // Coordinate of object in the y axis
-    pub z_coord: f32,  // Coordinate of object in the z axis
+    pub name: String,    // Name of the solar object
+    pub sim_time: f64,   // Simulation time
+    pub x_coord: f32,    // Coordinate of object in the x axis
+    pub y_coord: f32,    // Coordinate of object in the y axis
+    pub z_coord: f32,    // Coordinate of object in the z axis
+    pub x_velocity: f64, // Velocity of object in the x axis
+    pub y_velocity: f64, // Velocity of object in the y axis
+    pub z_velocity: f64, // Velocity of object in the z axis
 }
 
 #[derive(Debug, Serialize)]
