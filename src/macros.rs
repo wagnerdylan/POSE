@@ -18,3 +18,10 @@ macro_rules! atan2_deg {
         $x.atan2($y).to_degrees()
     };
 }
+
+#[macro_export]
+macro_rules! in_range {
+    ($lb: expr, $ub: expr, $val: expr) => {
+        $val >= $lb && $val <= $ub
+    };
+}

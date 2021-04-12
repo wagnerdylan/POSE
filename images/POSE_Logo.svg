@@ -1,0 +1,112 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg
+   xmlns:dc="http://purl.org/dc/elements/1.1/"
+   xmlns:cc="http://creativecommons.org/ns#"
+   xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+   xmlns:svg="http://www.w3.org/2000/svg"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   width="131mm"
+   height="44mm"
+   viewBox="0 0 131 44"
+   version="1.1"
+   id="svg8"
+   inkscape:version="1.0.1 (3bc2e813f5, 2020-09-07)"
+   sodipodi:docname="POSE_Logo2.svg">
+  <defs
+     id="defs2" />
+  <sodipodi:namedview
+     id="base"
+     pagecolor="#ffffff"
+     bordercolor="#666666"
+     borderopacity="1.0"
+     inkscape:pageopacity="0.0"
+     inkscape:pageshadow="2"
+     inkscape:zoom="1.2316035"
+     inkscape:cx="340.35483"
+     inkscape:cy="232.96133"
+     inkscape:document-units="mm"
+     inkscape:current-layer="layer2"
+     inkscape:document-rotation="0"
+     showgrid="false"
+     inkscape:window-width="2560"
+     inkscape:window-height="1377"
+     inkscape:window-x="-8"
+     inkscape:window-y="-8"
+     inkscape:window-maximized="1" />
+  <metadata
+     id="metadata5">
+    <rdf:RDF>
+      <cc:Work
+         rdf:about="">
+        <dc:format>image/svg+xml</dc:format>
+        <dc:type
+           rdf:resource="http://purl.org/dc/dcmitype/StillImage" />
+        <dc:title></dc:title>
+      </cc:Work>
+    </rdf:RDF>
+  </metadata>
+  <g
+     inkscape:groupmode="layer"
+     id="layer2"
+     inkscape:label="Layer 2">
+    <rect
+       style="fill:#ffffff;stroke-width:3.96301;stroke-linejoin:round"
+       id="rect862"
+       width="156.60985"
+       height="70.248871"
+       x="-9.02279"
+       y="-10.311761" />
+  </g>
+  <g
+     inkscape:label="Layer 1"
+     inkscape:groupmode="layer"
+     id="layer1">
+    <text
+       xml:space="preserve"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:50.8px;line-height:1.25;font-family:Arial;-inkscape-font-specification:Arial;white-space:pre;inline-size:182.743;fill:#333333;fill-opacity:1;stroke:none;stroke-width:0.264583"
+       x="34.773811"
+       y="85.04464"
+       id="text2282"
+       transform="translate(-35.446674,-45.328778)"><tspan
+         x="34.773811"
+         y="85.04464"><tspan
+           style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:50.8px;font-family:Georgia;-inkscape-font-specification:Georgia;fill:#333333;stroke-width:0.264583">POSE</tspan></tspan></text>
+    <path
+       style="fill:#333333;stroke-width:0.280633"
+       id="path2286"
+       sodipodi:type="arc"
+       sodipodi:cx="49.408978"
+       sodipodi:cy="21.761997"
+       sodipodi:rx="19.84375"
+       sodipodi:ry="19.843748"
+       sodipodi:start="5.9256063"
+       sodipodi:end="5.7129871"
+       sodipodi:arc-type="arc"
+       d="M 67.997549,14.816538 A 19.84375,19.843748 0 0 1 57.332234,39.955303 19.84375,19.843748 0 0 1 31.662327,30.640668 19.84375,19.843748 0 0 1 39.59997,4.5121354 19.84375,19.843748 0 0 1 66.113327,11.050364"
+       sodipodi:open="true" />
+    <rect
+       style="fill:#ffffff;stroke-width:4.11062;stroke-linejoin:round;stroke-miterlimit:4;stroke-dasharray:none"
+       id="rect3132"
+       width="2.5342348"
+       height="40.045334"
+       x="52.614437"
+       y="-17.404863"
+       transform="matrix(0.93442232,0.35616699,-0.37059071,0.92879628,0,0)"
+       ry="0" />
+    <path
+       style="fill:#ffffff;stroke-width:3.98101;stroke-linejoin:round;stroke-miterlimit:4;stroke-dasharray:none"
+       id="path3150"
+       sodipodi:type="arc"
+       sodipodi:cx="52.885906"
+       sodipodi:cy="13.036205"
+       sodipodi:rx="4.4099474"
+       sodipodi:ry="4.3765383"
+       sodipodi:start="5.9256023"
+       sodipodi:end="5.7129862"
+       sodipodi:open="true"
+       sodipodi:arc-type="arc"
+       d="m 57.016905,11.504368 a 4.4099474,4.3765383 0 0 1 -2.370172,5.544365 4.4099474,4.3765383 0 0 1 -5.704723,-2.054327 4.4099474,4.3765383 0 0 1 1.763999,-5.7626538 4.4099474,4.3765383 0 0 1 5.892162,1.4419988" />
+  </g>
+</svg>

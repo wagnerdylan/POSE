@@ -1,12 +1,17 @@
 use serde::Serialize;
 
+use crate::{bodies, cpu::sim_cpu};
+
 #[derive(Debug, Serialize)]
 pub struct SolarObjectOut {
-    pub name: String,  // Name of the solar object
-    pub sim_time: f64, // Simulation time
-    pub x_coord: f32,  // Coordinate of object in the x axis
-    pub y_coord: f32,  // Coordinate of object in the y axis
-    pub z_coord: f32,  // Coordinate of object in the z axis
+    pub name: String,    // Name of the solar object
+    pub sim_time: f64,   // Simulation time
+    pub x_coord: f32,    // Coordinate of object in the x axis
+    pub y_coord: f32,    // Coordinate of object in the y axis
+    pub z_coord: f32,    // Coordinate of object in the z axis
+    pub x_velocity: f64, // Velocity of object in the x axis
+    pub y_velocity: f64, // Velocity of object in the y axis
+    pub z_velocity: f64, // Velocity of object in the z axis
 }
 
 #[derive(Debug, Serialize)]
@@ -21,9 +26,16 @@ pub struct PerturbationOut {
 
 #[derive(Debug, Serialize)]
 pub struct SimulationObjectParameters {
-    pub id: u32,         // ID of the object
-    pub sim_time: f64,   // Simulation time
-    pub x_coord: f64,    // Coordinate of object in the x axis
+    pub id: u32,       // ID of the object
+    pub sim_time: f64, // Simulation time
+    pub soi: String,   // Sphere of influence in string form
+    pub x_abs_coord: f64,
+    /// Absolute coordinate of object in the x axis
+    pub y_abs_coord: f64,
+    /// Absolute coordinate of object in the y axis
+    pub z_abs_coord: f64,
+    /// Absolute coordinate of object in the z axis
+    pub x_coord: f64, // Coordinate of object in the x axis
     pub y_coord: f64,    // Coordinate of object in the y axis
     pub z_coord: f64,    // Coordinate of object in the z axis
     pub x_velocity: f64, // Velocity of object in the x axis
@@ -103,5 +115,33 @@ pub mod csv_output {
             // Unwrap here as this is a critical error
             self.solar_object_writer.flush().unwrap();
         }
+    }
+}
+
+pub fn write_out_all_solar_objects(
+    env: &bodies::Environment,
+    output_controller: &mut dyn SimulationOutput,
+) {
+    output_controller.write_out_solar_object(env.sun_to_output_form());
+    output_controller.write_out_solar_object(env.earth_to_output_form());
+    output_controller.write_out_solar_object(env.moon_to_output_form());
+}
+
+pub fn write_out_all_perturbations(
+    perturbations: &mut [sim_cpu::Perturbation],
+    output_controller: &mut dyn SimulationOutput,
+) {
+    for perturbation in perturbations {
+        output_controller.write_out_perturbation(perturbation.to_output_form());
+    }
+}
+
+pub fn write_out_all_object_parameters(
+    env: &bodies::Environment,
+    sim_objects: &[bodies::SimobjT],
+    output_controller: &mut dyn SimulationOutput,
+) {
+    for sim_obj in sim_objects {
+        output_controller.write_out_object_parameters(sim_obj.to_output_form(env.get_sim_time()));
     }
 }

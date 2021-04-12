@@ -2,10 +2,7 @@ use super::bodies;
 
 use chrono::DateTime;
 use clap::ArgMatches;
-use std::error::Error;
-use std::fs::File;
-use std::io::BufReader;
-use std::path::Path;
+use std::{error::Error, fs::File, io::BufReader, path::Path};
 
 pub struct SimulationParameters {
     pub input_bodies_json: String,
@@ -54,16 +51,14 @@ pub fn parse_input(file: &str) -> (Vec<bodies::SimobjT>, DateTime<chrono::Utc>) 
     let ser_objs = read_object_from_file(file).unwrap();
 
     //add objects to sim_bodies
-    for elem in ser_objs.debris {
-        //println!("id {}", elem.type_of());
-        let p = Box::new(elem);
-        sim_bodies.push(p);
+    for mut elem in ser_objs.debris {
+        elem.sim_object_type = bodies::SimObjectType::Debris;
+        sim_bodies.push(elem);
     }
 
-    for elem in ser_objs.spacecraft {
-        //println!("id {}", elem.type_of());
-        let p = Box::new(elem);
-        sim_bodies.push(p);
+    for mut elem in ser_objs.spacecraft {
+        elem.sim_object_type = bodies::SimObjectType::Spacecraft;
+        sim_bodies.push(elem);
     }
 
     assign_id(&mut sim_bodies);
@@ -107,7 +102,7 @@ fn assign_id(sim_bodies: &mut Vec<bodies::SimobjT>) {
     let mut id_inc: u32 = 1;
 
     for body in sim_bodies {
-        *body.id_mut() = id_inc;
+        body.id = id_inc;
         id_inc += 1;
     }
 }
