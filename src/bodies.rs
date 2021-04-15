@@ -854,7 +854,7 @@ fn make_earth(day: f64) -> Earth {
 fn make_moon(day: f64, earth_coords: &Array3d) -> PlanetPS {
     let solar_trait = Solarobj::Moon {
         attr: Some(SolarAttr {
-            radius: 1738.1,
+            radius: 1.7381e6,
             mass: 0.07346e24,
         }),
     };
