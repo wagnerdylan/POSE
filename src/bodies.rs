@@ -201,12 +201,12 @@ impl Environment {
     /// * 'datetime' - User provided datetime object.
     ///
     /// ### Return
-    ///     The delta from 0/Jan/2000 00:00 UTC in days.
+    ///     The delta from 30/Dec/1999 20:00:00 UTC in days.
     ///
     fn datetime_to_days(datetime_obj: &DateTime<chrono::Utc>) -> f64 {
-        let origin_dt = chrono::Utc.ymd(2000, 1, 1).and_hms(0, 0, 0);
+        let origin_dt = chrono::Utc.ymd(1999, 12, 30).and_hms(20, 0, 0);
 
-        (1.15741e-5f64 * (*datetime_obj - origin_dt).num_seconds() as f64) as f64
+        (*datetime_obj - origin_dt).num_seconds() as f64 / 86400f64
     }
 
     /// Creates the initial solar system
@@ -882,6 +882,8 @@ fn make_moon(day: f64, earth_coords: &Array3d) -> PlanetPS {
     };
 
     // Calculate the location of the moon and convert to heliocentric coords
+    println!("{:?}", day);
+    println!("{:?}", moon_body.ecliptic_cartesian_coords(day));
     let initial_coords = moon_body.ecliptic_cartesian_coords(day) + earth_coords;
     moon_body.coords.ahead_coords = initial_coords;
     moon_body.coords.current_coords = initial_coords;
