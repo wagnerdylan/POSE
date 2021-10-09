@@ -139,3 +139,24 @@ pub fn simulate(
         perturbation_vec.clear();
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_newton_gravitational_field() {
+        let grav_result = newton_gravitational_field(
+            &Array3d {
+                x: 1.0,
+                z: 1.0,
+                y: 1.0,
+            },
+            1e15f64,
+        );
+
+        assert!(-12845.0 < grav_result.x && grav_result.x < -12843.0);
+        assert!(-12845.0 < grav_result.y && grav_result.y < -12843.0);
+        assert!(-12845.0 < grav_result.z && grav_result.z < -12843.0);
+    }
+}
