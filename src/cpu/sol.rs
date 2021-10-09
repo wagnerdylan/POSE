@@ -71,9 +71,6 @@ pub fn calculate_solar_perturbations(
     perturbations_out: &mut Option<&mut Vec<sim_cpu::Perturbation>>,
 ) -> sim_cpu::PerturbationDelta {
     // Perturbation due to solar gravity on simulation object
-    let gravity_perturbation =
-        calculate_solar_gravity_perturbation(sim_obj, env, perturbations_out);
-
     // TODO combine perturbations if there are more than one
-    gravity_perturbation
+    calculate_solar_gravity_perturbation(sim_obj, env, perturbations_out)
 }
