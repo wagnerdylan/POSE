@@ -117,7 +117,7 @@ impl Environment {
     fn update(&mut self, sim_params: &SimulationParameters) {
         self.last_day_update_s = self.sim_time_s;
 
-        // Calculate postions at current time (postions at future time, TODO optimise)
+        // Calculate positions at current time (positions at future time, TODO optimize)
         let new_time = self.start_time + Duration::seconds(self.sim_time_s as i64);
         self.update_solar_objs(&new_time);
 
@@ -466,7 +466,9 @@ pub struct Sun {
     pub velocity: Array3d,
 }
 
-/// Provides utilities for calculating planetary bodies with a Kepler model
+/// Provides utilities for calculating planetary bodies with a Kepler model.
+/// Most of the code used to calculate planetary body coordinates was referenced
+/// from source for http://cosinekitty.com/solar_system.html. See, http://cosinekitty.com/astronomy.js.
 mod kepler_utilities {
     use crate::{
         bodies::{PlanetPS, EARTH_RADII_PER_ASTRONOMICAL_UNIT},

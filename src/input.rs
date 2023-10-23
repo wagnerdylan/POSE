@@ -1,39 +1,32 @@
 use super::bodies;
 
 use chrono::DateTime;
-use clap::ArgMatches;
+use clap::Parser;
 use std::{error::Error, fs::File, io::BufReader, path::Path};
 
+#[derive(Parser, Debug)]
+#[command(
+    version,
+    name = "Parallel Orbital Simulation Environment (POSE)",
+    long_about = "Simulation aimed to model the orbital environment around Earth for bodies at all magnitudes."
+)]
 pub struct SimulationParameters {
-    pub input_bodies_json: String,
+    #[arg(
+        short,
+        long,
+        help = "json file containing information on bodies at initialization."
+    )]
+    pub configuration: String,
+    #[arg(short, long, help = "name of desired output directory.")]
     pub output_dir: String,
+    #[arg(
+        long,
+        help = "value to be used as the simulation time step in seconds.",
+        default_value_t = 1.0
+    )]
     pub sim_time_step: f32,
+    #[arg(long, help = "value to be used as the update period for solar objects.", default_value_t = 3600.0 * 12.0 )]
     pub sim_solar_step: f32,
-}
-
-pub fn gather_program_arguments(matches: ArgMatches) -> SimulationParameters {
-    // Load with defaults
-    let mut sim_params: SimulationParameters = SimulationParameters {
-        input_bodies_json: "".to_string(),
-        output_dir: "".to_string(),
-        sim_time_step: 1.0,
-        sim_solar_step: 3600.0 * 12.0, // Every half day
-    };
-
-    sim_params.input_bodies_json = matches.value_of("INPUT").unwrap().to_string();
-    if matches.is_present("sim_time_step") {
-        sim_params.sim_time_step = matches
-            .value_of("sim_time_step")
-            .unwrap()
-            .parse::<f32>()
-            .unwrap();
-    }
-
-    if matches.is_present("out") {
-        sim_params.output_dir = matches.value_of("out").unwrap().to_string()
-    }
-
-    sim_params
 }
 
 /// Main entry point into the init sequence

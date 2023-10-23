@@ -63,7 +63,7 @@ pub fn newton_gravitational_field(distance_vector: &Array3d, planet_mass_kg: f64
     let l2_dist = types::l2_norm(distance_vector);
     // Calculate unit vector for perturbation
     let unit_vector = types::normalize(distance_vector, Some(l2_dist));
-    // Calculate force using Newton's law of universal gravitation
+    // Calculate acceleration field using Newton's law of universal gravitation
     unit_vector * (-G * (planet_mass_kg / l2_dist.powi(2)))
 }
 
