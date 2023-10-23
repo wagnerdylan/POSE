@@ -1,4 +1,4 @@
-use crate::bodies;
+use crate::{bodies, output, types::Array3d};
 use bodies::KeplerModel;
 
 use super::sim_cpu;
@@ -6,8 +6,8 @@ use super::sim_cpu;
 fn calculate_solar_gravity_perturbation(
     sim_obj: &bodies::SimobjT,
     env: &bodies::Environment,
-    perturbations_out: &mut Option<&mut Vec<sim_cpu::Perturbation>>,
-) -> sim_cpu::PerturbationDelta {
+    perturbations_out: &mut Option<&mut Vec<output::PerturbationOut>>,
+) -> Array3d {
     // Calculate distance between the sun and the sim object using absolute coordinates
     let distance_vector_sim_obj = sim_obj.coords_abs - env.sun.coords.current_coords;
 
@@ -38,20 +38,18 @@ fn calculate_solar_gravity_perturbation(
             );
     }
 
-    let perturbation_delta = sim_cpu::PerturbationDelta {
-        id: sim_obj.id,
-        sim_time: env.get_sim_time(),
-        acceleration: gravity_accel,
-    };
-
     if let Some(out) = perturbations_out {
-        out.push(sim_cpu::Perturbation::SolarObject(
-            env.sun.get_solar_object().clone(),
-            perturbation_delta,
-        ))
+        out.push(output::PerturbationOut {
+            id: sim_obj.id,
+            sim_time: env.get_sim_time(),
+            petrub_type: "solar_obj_sun".to_string(),
+            acceleration_x_mpss: gravity_accel.x,
+            acceleration_y_mpss: gravity_accel.y,
+            acceleration_z_mpss: gravity_accel.z,
+        })
     }
 
-    perturbation_delta
+    gravity_accel
 }
 
 /// Calculate all solar perturbations on sim_obj
@@ -68,9 +66,7 @@ fn calculate_solar_gravity_perturbation(
 pub fn calculate_solar_perturbations(
     sim_obj: &bodies::SimobjT,
     env: &bodies::Environment,
-    perturbations_out: &mut Option<&mut Vec<sim_cpu::Perturbation>>,
-) -> sim_cpu::PerturbationDelta {
-    // Perturbation due to solar gravity on simulation object
-    // TODO combine perturbations if there are more than one
+    perturbations_out: &mut Option<&mut Vec<output::PerturbationOut>>,
+) -> Array3d {
     calculate_solar_gravity_perturbation(sim_obj, env, perturbations_out)
 }

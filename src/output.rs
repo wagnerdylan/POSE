@@ -44,7 +44,7 @@ pub struct SimulationObjectParameters {
 }
 
 pub trait SimulationOutput {
-    fn write_out_perturbation(&mut self, petrub_out: PerturbationOut);
+    fn write_out_perturbation(&mut self, petrub_out: &PerturbationOut);
 
     fn write_out_object_parameters(&mut self, object_params: SimulationObjectParameters);
 
@@ -90,7 +90,7 @@ pub mod csv_output {
     }
 
     impl SimulationOutput for CSVController {
-        fn write_out_perturbation(&mut self, petrub_out: PerturbationOut) {
+        fn write_out_perturbation(&mut self, petrub_out: &PerturbationOut) {
             self.perturbation_writer.serialize(petrub_out).expect(
                 "Failed to write simulation perturbation data to the corresponding csv file.",
             );
@@ -128,11 +128,11 @@ pub fn write_out_all_solar_objects(
 }
 
 pub fn write_out_all_perturbations(
-    perturbations: &mut [sim_cpu::Perturbation],
+    perturbations: &[PerturbationOut],
     output_controller: &mut dyn SimulationOutput,
 ) {
     for perturbation in perturbations {
-        output_controller.write_out_perturbation(perturbation.to_output_form());
+        output_controller.write_out_perturbation(perturbation);
     }
 }
 

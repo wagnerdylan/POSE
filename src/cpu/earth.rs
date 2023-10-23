@@ -1,13 +1,33 @@
-use crate::bodies;
+use super::sim_cpu::{self};
+use crate::{bodies, output, types::Array3d};
 use bodies::KeplerModel;
 
-use super::sim_cpu;
+fn calculate_earth_atmospheric_drag_perturbation(
+    sim_obj: &bodies::SimobjT,
+    env: &bodies::Environment,
+    perturbations_out: &mut Option<&mut Vec<output::PerturbationOut>>,
+) -> Array3d {
+    // TODO stub function
+
+    if let Some(out) = perturbations_out {
+        out.push(output::PerturbationOut {
+            id: sim_obj.id,
+            sim_time: env.get_sim_time(),
+            petrub_type: "drag_earth".to_string(),
+            acceleration_x_mpss: 0.0,
+            acceleration_y_mpss: 0.0,
+            acceleration_z_mpss: 0.0,
+        })
+    }
+
+    Array3d::default()
+}
 
 fn calculate_earth_gravity_perturbation(
     sim_obj: &bodies::SimobjT,
     env: &bodies::Environment,
-    perturbations_out: &mut Option<&mut Vec<sim_cpu::Perturbation>>,
-) -> sim_cpu::PerturbationDelta {
+    perturbations_out: &mut Option<&mut Vec<output::PerturbationOut>>,
+) -> Array3d {
     // Calculate distance between the earth and the sim object using absolute coordinates
     let distance_vector_sim_obj = sim_obj.coords_abs - env.earth.coords.current_coords;
 
@@ -36,28 +56,25 @@ fn calculate_earth_gravity_perturbation(
             );
     }
 
-    let perturbation_delta = sim_cpu::PerturbationDelta {
-        id: sim_obj.id,
-        sim_time: env.get_sim_time(),
-        acceleration: gravity_accel,
-    };
-
     if let Some(out) = perturbations_out {
-        out.push(sim_cpu::Perturbation::SolarObject(
-            env.earth.get_solar_object().clone(),
-            perturbation_delta,
-        ))
+        out.push(output::PerturbationOut {
+            id: sim_obj.id,
+            sim_time: env.get_sim_time(),
+            petrub_type: "solar_obj_earth".to_string(),
+            acceleration_x_mpss: gravity_accel.x,
+            acceleration_y_mpss: gravity_accel.y,
+            acceleration_z_mpss: gravity_accel.z,
+        })
     }
 
-    perturbation_delta
+    gravity_accel
 }
 
 pub fn calculate_earth_perturbations(
     sim_obj: &bodies::SimobjT,
     env: &bodies::Environment,
-    perturbations_out: &mut Option<&mut Vec<sim_cpu::Perturbation>>,
-) -> sim_cpu::PerturbationDelta {
-    // Perturbation due to earth gravity on simulation object
-    // TODO combine perturbations if there are more than one
+    perturbations_out: &mut Option<&mut Vec<output::PerturbationOut>>,
+) -> Array3d {
     calculate_earth_gravity_perturbation(sim_obj, env, perturbations_out)
+        + calculate_earth_atmospheric_drag_perturbation(sim_obj, env, perturbations_out)
 }

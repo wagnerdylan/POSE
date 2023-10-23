@@ -1,63 +1,15 @@
-use crate::{bodies, input, output, types};
-use std::string::ToString;
-use strum_macros::Display;
+use crate::{
+    bodies, input,
+    output::{self, PerturbationOut},
+    types,
+};
 use types::Array3d;
 
 use super::{earth, moon, sol};
 
 // Gravitational constant 6.674×10−11
 const G: f64 = 6.674e-11;
-const MAX_NUM_OF_PERTURBATIONS: usize = 3;
-
-#[derive(Clone, Copy)]
-pub struct PerturbationDelta {
-    pub(crate) id: u32,
-    pub(crate) sim_time: f64,
-    pub(crate) acceleration: Array3d,
-}
-
-impl Default for PerturbationDelta {
-    fn default() -> Self {
-        Self {
-            id: 0,
-            sim_time: 0.0,
-            acceleration: Array3d::default(),
-        }
-    }
-}
-
-#[derive(Display)]
-pub enum Perturbation {
-    #[strum(serialize = "solar_obj")]
-    SolarObject(bodies::Solarobj, PerturbationDelta),
-}
-
-impl Perturbation {
-    pub fn to_output_form(&self) -> output::PerturbationOut {
-        output::PerturbationOut {
-            id: match &self {
-                Perturbation::SolarObject(_, perturb_delta) => perturb_delta.id,
-            },
-            sim_time: match &self {
-                Perturbation::SolarObject(_, perturb_delta) => perturb_delta.sim_time,
-            },
-            petrub_type: match &self {
-                Perturbation::SolarObject(solar_obj, _) => {
-                    format!("{}_{}", self.to_string(), solar_obj.to_string())
-                }
-            },
-            acceleration_x_mpss: match &self {
-                Perturbation::SolarObject(_, perturb_delta) => perturb_delta.acceleration.x,
-            },
-            acceleration_y_mpss: match &self {
-                Perturbation::SolarObject(_, perturb_delta) => perturb_delta.acceleration.y,
-            },
-            acceleration_z_mpss: match &self {
-                Perturbation::SolarObject(_, perturb_delta) => perturb_delta.acceleration.z,
-            },
-        }
-    }
-}
+const MAX_NUM_OF_PERTURBATIONS: usize = 4;
 
 pub fn newton_gravitational_field(distance_vector: &Array3d, planet_mass_kg: f64) -> Array3d {
     let l2_dist = types::l2_norm(distance_vector);
@@ -71,19 +23,19 @@ pub fn apply_perturbations(
     sim_obj: &mut bodies::SimobjT,
     env: &bodies::Environment,
     step_time_s: f64,
-    perturbations_out: &mut Option<&mut Vec<Perturbation>>,
+    perturbations_out: &mut Option<&mut Vec<PerturbationOut>>,
 ) {
     // Update absolute coordinates for use in perturbation calculations
     sim_obj.coords_abs = env.calculate_abs_coords(sim_obj);
 
     let mut net_acceleration = Array3d::default();
     // Calculate the perturbation forces for all planetary objects
-    net_acceleration = net_acceleration
-        + sol::calculate_solar_perturbations(sim_obj, env, perturbations_out).acceleration;
-    net_acceleration = net_acceleration
-        + earth::calculate_earth_perturbations(sim_obj, env, perturbations_out).acceleration;
-    net_acceleration = net_acceleration
-        + moon::calculate_moon_perturbations(sim_obj, env, perturbations_out).acceleration;
+    net_acceleration =
+        net_acceleration + sol::calculate_solar_perturbations(sim_obj, env, perturbations_out);
+    net_acceleration =
+        net_acceleration + earth::calculate_earth_perturbations(sim_obj, env, perturbations_out);
+    net_acceleration =
+        net_acceleration + moon::calculate_moon_perturbations(sim_obj, env, perturbations_out);
 
     // Velocity and displacement calculations use Euler–Cromer integration as errors
     // in Euler–Cromer do not grow exponentially thus providing the most stable orbit.
@@ -112,7 +64,7 @@ pub fn simulate(
     sim_params: input::SimulationParameters,
 ) {
     // Allocate large buffer for holding perturbations
-    let mut perturbation_vec: Vec<Perturbation> =
+    let mut perturbation_vec: Vec<PerturbationOut> =
         Vec::with_capacity(sim_bodies.len() * MAX_NUM_OF_PERTURBATIONS);
 
     loop {
@@ -132,7 +84,7 @@ pub fn simulate(
 
         output::write_out_all_object_parameters(&env, &sim_bodies, output_controller.as_mut());
         output::write_out_all_solar_objects(&env, output_controller.as_mut());
-        output::write_out_all_perturbations(&mut perturbation_vec, output_controller.as_mut());
+        output::write_out_all_perturbations(&perturbation_vec, output_controller.as_mut());
 
         env.advance_simulation_environment(&sim_params);
 

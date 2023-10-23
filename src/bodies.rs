@@ -24,16 +24,11 @@ pub struct InitData {
     pub spacecraft: Vec<SimobjT>, // Spacecraft objects
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Default)]
 pub enum SimObjectType {
+    #[default]
     Spacecraft,
     Debris,
-}
-
-impl Default for SimObjectType {
-    fn default() -> Self {
-        SimObjectType::Spacecraft
-    }
 }
 
 #[derive(Serialize, Deserialize)]
@@ -206,6 +201,7 @@ impl Environment {
     fn datetime_to_days(datetime_obj: &DateTime<chrono::Utc>) -> f64 {
         let origin_dt = chrono::Utc.ymd(2000, 1, 1).and_hms(0, 0, 0);
 
+        // Calculate delta with result expressed in seconds, convert to days.
         (*datetime_obj - origin_dt).num_seconds() as f64 / 86400f64
     }
 
