@@ -1,6 +1,6 @@
 use serde::Serialize;
 
-use crate::{bodies, cpu::sim_cpu};
+use crate::bodies;
 
 #[derive(Debug, Serialize)]
 pub struct SolarObjectOut {

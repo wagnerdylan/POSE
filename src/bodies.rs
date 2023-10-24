@@ -47,13 +47,6 @@ pub struct SimobjT {
 }
 
 impl SimobjT {
-    fn type_of(&self) -> String {
-        match self.sim_object_type {
-            SimObjectType::Spacecraft => String::from("Spacecraft"),
-            SimObjectType::Debris => String::from("Debris"),
-        }
-    }
-
     pub fn to_output_form(&self, sim_time: f64) -> output::SimulationObjectParameters {
         let abs_coords = &self.coords_abs;
         let coords = &self.coords;
@@ -199,7 +192,7 @@ impl Environment {
     ///     The delta from J2000.0
     ///
     fn datetime_to_days(datetime_obj: &DateTime<chrono::Utc>) -> f64 {
-        let origin_dt = chrono::Utc.ymd(2000, 1, 1).and_hms(0, 0, 0);
+        let origin_dt = chrono::Utc.with_ymd_and_hms(2000, 1, 1, 0, 0, 0).unwrap();
 
         // Calculate delta with result expressed in seconds, convert to days.
         (*datetime_obj - origin_dt).num_seconds() as f64 / 86400f64
@@ -425,6 +418,7 @@ impl Solarobj {
 }
 
 #[derive(Clone)]
+#[allow(dead_code)]
 pub struct PlanetPS {
     // See  http://www.stjarnhimlen.se/comp/ppcomp.html#4
     solartype: Solarobj, // Type enum of the solar obj
@@ -594,7 +588,7 @@ pub trait KeplerModel {
 
     fn get_solar_object(&self) -> &Solarobj;
 }
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Default)]
 pub struct SolarobjCoords {
     pub ahead_coords: Array3d,
     pub current_coords: Array3d, // Initial coords
@@ -645,16 +639,6 @@ impl SolarobjCoords {
         ((self.ahead_coords - relative.ahead_coords)
             - (self.behind_coords - relative.behind_coords))
             / step_time_s
-    }
-}
-
-impl Default for SolarobjCoords {
-    fn default() -> Self {
-        Self {
-            ahead_coords: Array3d::default(),
-            current_coords: Array3d::default(),
-            behind_coords: Array3d::default(),
-        }
     }
 }
 
