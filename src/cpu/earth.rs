@@ -1,14 +1,58 @@
 use super::sim_cpu::{self};
-use crate::{bodies, output, types::Array3d};
+use crate::{
+    bodies, output,
+    types::{l2_norm, Array3d},
+};
 use bodies::KeplerModel;
+
+use chrono::{Datelike, Duration, Timelike};
+
+fn nrlmsise00_model(
+    env: &bodies::Environment,
+    sim_obj_alt_meters: f64,
+) -> nrlmsise00c::NRLMSISEOutput {
+    let current_datetime =
+        env.start_time + Duration::milliseconds((env.get_sim_time() * 1000.0) as i64);
+    let seconds_from_midnight = current_datetime.num_seconds_from_midnight() as f64;
+    let mut input = nrlmsise00c::NRLMSISEInput {
+        year: current_datetime.year(),
+        doy: current_datetime.ordinal() as i32,
+        sec: seconds_from_midnight,
+        alt: sim_obj_alt_meters / 1000.0,
+        g_lat: 0.0,
+        g_long: 0.0,
+        lst: seconds_from_midnight / 3600.0 + 0.0 / 15.0, // (lst=sec/3600 + g_long/15)
+        f107A: 69.0,
+        f107: 69.0,
+        ap: 7.0,
+        ap_a: [0f64; 7usize],
+    };
+    let flags = nrlmsise00c::NRLMSISEFlags {
+        switches: [1; 24usize],
+        sw: [0f64; 24usize],
+        swc: [0f64; 24usize],
+    };
+
+    nrlmsise00c::gtd7_safe(&mut input, &flags)
+}
 
 fn calculate_earth_atmospheric_drag_perturbation(
     sim_obj: &bodies::SimobjT,
     env: &bodies::Environment,
     perturbations_out: &mut Option<&mut Vec<output::PerturbationOut>>,
 ) -> Array3d {
-    // TODO stub function
+    let distance_sim_obj = l2_norm(&(sim_obj.coords_abs - env.earth.coords.current_coords));
+    let sim_obj_alt = distance_sim_obj - env.earth.get_solar_object().get_radius_meters();
 
+    // return an empty result if sim object earth relative altitude is not within a range which
+    // atmospheric drag will be relevant to simulation.
+    if !(0.0..=20_000.0 * 1000.0).contains(&sim_obj_alt) {
+        return Array3d::default();
+    }
+
+    let atmos_model_result = nrlmsise00_model(env, sim_obj_alt);
+
+    // TODO calc drag
     if let Some(out) = perturbations_out {
         out.push(output::PerturbationOut {
             id: sim_obj.id,

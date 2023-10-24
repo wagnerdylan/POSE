@@ -10,3 +10,4 @@
 .csv
 test_output/*
 .idea
+out/

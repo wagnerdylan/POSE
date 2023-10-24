@@ -419,7 +419,7 @@ dependencies = [
 [[package]]
 name = "nrlmsise-00-c"
 version = "0.1.0"
-source = "git+https://github.com/wagnerdylan/NRLMSISE-00-C#c8e5963c796eb9ae92afe3ed3c1eff6d252bb2af"
+source = "git+https://github.com/wagnerdylan/NRLMSISE-00-C#ee68a36092db666a37c75fa32d25b9013aa29b14"
 dependencies = [
  "bindgen",
  "cc",

@@ -106,7 +106,8 @@ impl Environment {
         self.last_day_update_s = self.sim_time_s;
 
         // Calculate positions at current time (positions at future time, TODO optimize)
-        let new_time = self.start_time + Duration::seconds(self.sim_time_s as i64);
+        let new_time =
+            self.start_time + Duration::milliseconds((self.get_sim_time() * 1000.0) as i64);
         self.update_solar_objs(&new_time);
 
         // Set the corresponding last and current coords to ahead time as ahead time is now current
@@ -413,6 +414,16 @@ impl Solarobj {
             Solarobj::Sun { attr } => attr.as_ref().expect(ERROR_MSG).mass,
             Solarobj::Earth { attr } => attr.as_ref().expect(ERROR_MSG).mass,
             Solarobj::Moon { attr } => attr.as_ref().expect(ERROR_MSG).mass,
+        }
+    }
+
+    pub fn get_radius_meters(&self) -> f64 {
+        const ERROR_MSG: &str = "Enum has some field for attr";
+
+        match self {
+            Solarobj::Sun { attr } => attr.as_ref().expect(ERROR_MSG).radius,
+            Solarobj::Earth { attr } => attr.as_ref().expect(ERROR_MSG).radius,
+            Solarobj::Moon { attr } => attr.as_ref().expect(ERROR_MSG).radius,
         }
     }
 }
