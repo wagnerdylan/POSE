@@ -43,6 +43,7 @@ pub struct SimobjT {
     pub coords: Array3d,
     pub velocity: Array3d,
     pub drag_area: f64,
+    pub drag_coeff: f64,
     pub mass: f64,
 }
 

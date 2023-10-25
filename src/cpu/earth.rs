@@ -19,6 +19,8 @@ fn nrlmsise00_model(
         doy: current_datetime.ordinal() as i32,
         sec: seconds_from_midnight,
         alt: sim_obj_alt_meters / 1000.0,
+        // Use location of prime meridian as static point.
+        // This may be enhanced by converting sim obj from ECI to ECEF.
         g_lat: 0.0,
         g_long: 0.0,
         lst: seconds_from_midnight / 3600.0 + 0.0 / 15.0, // (lst=sec/3600 + g_long/15)
@@ -51,20 +53,25 @@ fn calculate_earth_atmospheric_drag_perturbation(
     }
 
     let atmos_model_result = nrlmsise00_model(env, sim_obj_alt);
+    let drag_force = sim_obj.drag_coeff
+        * sim_obj.drag_area
+        * 0.5
+        * atmos_model_result.rho
+        * (sim_obj.velocity * sim_obj.velocity);
+    let drag_accel = drag_force / sim_obj.mass;
 
-    // TODO calc drag
     if let Some(out) = perturbations_out {
         out.push(output::PerturbationOut {
             id: sim_obj.id,
             sim_time: env.get_sim_time(),
             petrub_type: "drag_earth".to_string(),
-            acceleration_x_mpss: 0.0,
-            acceleration_y_mpss: 0.0,
-            acceleration_z_mpss: 0.0,
+            acceleration_x_mpss: drag_accel.x,
+            acceleration_y_mpss: drag_accel.y,
+            acceleration_z_mpss: drag_accel.z,
         })
     }
 
-    Array3d::default()
+    drag_accel
 }
 
 fn calculate_earth_gravity_perturbation(

@@ -29,7 +29,7 @@ sim_data = pd.read_csv(
     converters={
         "sim_time": lambda x: (
             datetime.datetime.fromisoformat("2023-10-23T12:00:00.000")
-            + datetime.timedelta(seconds=float(x))
+            + datetime.timedelta(seconds=round(float(x), 1))
         )
     },
 )

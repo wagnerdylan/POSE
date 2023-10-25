@@ -68,6 +68,11 @@ pub fn simulate(
         Vec::with_capacity(sim_bodies.len() * MAX_NUM_OF_PERTURBATIONS);
 
     loop {
+        // Write out simulation data at the start of the simulation loop as to capture
+        // initial simulation state.
+        output::write_out_all_object_parameters(&env, &sim_bodies, output_controller.as_mut());
+        output::write_out_all_solar_objects(&env, output_controller.as_mut());
+
         // Calculate and apply perturbations for every object
         // TODO parallelize this
         for sim_obj in sim_bodies.iter_mut() {
@@ -82,8 +87,6 @@ pub fn simulate(
             env.check_switch_soi(sim_obj);
         }
 
-        output::write_out_all_object_parameters(&env, &sim_bodies, output_controller.as_mut());
-        output::write_out_all_solar_objects(&env, output_controller.as_mut());
         output::write_out_all_perturbations(&perturbation_vec, output_controller.as_mut());
 
         env.advance_simulation_environment(&sim_params);
