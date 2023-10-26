@@ -61,13 +61,20 @@ pub fn simulate(
     mut sim_bodies: Vec<bodies::SimobjT>,
     mut env: bodies::Environment,
     mut output_controller: Box<dyn output::SimulationOutput>,
-    sim_params: input::SimulationParameters,
+    runtime_params: input::RuntimeParameters,
 ) {
     // Allocate large buffer for holding perturbations
     let mut perturbation_vec: Vec<PerturbationOut> =
         Vec::with_capacity(sim_bodies.len() * MAX_NUM_OF_PERTURBATIONS);
 
     loop {
+        // Simulation halting condition. Return from function "simulate" will end simulation execution.
+        if env.start_time + chrono::Duration::milliseconds((env.get_sim_time() * 1000.0) as i64)
+            >= runtime_params.halt_date
+        {
+            break;
+        }
+
         // Write out simulation data at the start of the simulation loop as to capture
         // initial simulation state.
         output::write_out_all_object_parameters(&env, &sim_bodies, output_controller.as_mut());
@@ -79,7 +86,7 @@ pub fn simulate(
             apply_perturbations(
                 sim_obj,
                 &env,
-                sim_params.sim_time_step as f64,
+                runtime_params.sim_time_step as f64,
                 &mut Some(&mut perturbation_vec),
             );
 
@@ -89,7 +96,7 @@ pub fn simulate(
 
         output::write_out_all_perturbations(&perturbation_vec, output_controller.as_mut());
 
-        env.advance_simulation_environment(&sim_params);
+        env.advance_simulation_environment(&runtime_params);
 
         perturbation_vec.clear();
     }

@@ -40,8 +40,8 @@ fn init_simulation_objects(env: &Environment, sim_objs: &mut Vec<SimobjT>) {
 fn main() {
     let sim_params = input::SimulationParameters::parse();
 
-    let (mut sim_bodies, start_time) = input::parse_input(sim_params.configuration.as_str());
-    let env = bodies::Environment::new(start_time, &sim_params);
+    let (mut sim_bodies, runtime_params) = input::collect_simulation_inputs(&sim_params);
+    let env = bodies::Environment::new(runtime_params.date, &runtime_params);
 
     init_simulation_objects(&env, &mut sim_bodies);
 
@@ -50,5 +50,5 @@ fn main() {
         sim_params.output_dir.as_str(),
     ));
 
-    cpu::sim_cpu::simulate(sim_bodies, env, output_controller, sim_params);
+    cpu::sim_cpu::simulate(sim_bodies, env, output_controller, runtime_params);
 }

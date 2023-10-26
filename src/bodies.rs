@@ -1,4 +1,4 @@
-use crate::{input::SimulationParameters, output, types};
+use crate::{input::RuntimeParameters, output, types};
 use chrono::{DateTime, Duration, TimeZone, Utc};
 use serde::{Deserialize, Serialize};
 use strum_macros::Display;
@@ -16,13 +16,6 @@ const AU_METER: f64 = 1.496e+11;
 // Authors: Chebotarev, G. A.
 const EARTH_HILL_SPHERE_RADIUS: f64 = 0.01001 * AU_METER;
 const LUNAR_HILL_SPHERE_RADIUS: f64 = 58050000.0;
-
-#[derive(Serialize, Deserialize)]
-pub struct InitData {
-    pub date: String,             // Datetime in ISO 8601 format
-    pub debris: Vec<SimobjT>,     // Debris objects
-    pub spacecraft: Vec<SimobjT>, // Spacecraft objects
-}
 
 #[derive(Serialize, Default)]
 pub enum SimObjectType {
@@ -103,7 +96,7 @@ impl Environment {
     /// ### Argument
     /// 'sim_params" - Simulation parameters gathered at invocation time
     ///
-    fn update(&mut self, sim_params: &SimulationParameters) {
+    fn update(&mut self, runtime_params: &RuntimeParameters) {
         self.last_day_update_s = self.sim_time_s;
 
         // Calculate positions at current time (positions at future time, TODO optimize)
@@ -121,7 +114,7 @@ impl Environment {
         self.moon.coords.behind_coords = self.moon.coords.ahead_coords;
         self.moon.coords.current_coords = self.moon.coords.ahead_coords;
 
-        self.future_day_update_s = self.sim_time_s + (sim_params.sim_solar_step as f64);
+        self.future_day_update_s = self.sim_time_s + (runtime_params.sim_solar_step as f64);
 
         // Calculate new positions at future time
         let future_time = self.start_time + Duration::seconds(self.future_day_update_s as i64);
@@ -130,14 +123,14 @@ impl Environment {
         self.sun.velocity = self
             .sun
             .coords
-            .calc_velocity_full_range(sim_params.sim_solar_step as f64);
-        self.earth.velocity = self
-            .earth
-            .coords
-            .calc_velocity_relative_full_range(&self.sun.coords, sim_params.sim_solar_step as f64);
+            .calc_velocity_full_range(runtime_params.sim_solar_step as f64);
+        self.earth.velocity = self.earth.coords.calc_velocity_relative_full_range(
+            &self.sun.coords,
+            runtime_params.sim_solar_step as f64,
+        );
         self.moon.velocity = self.moon.coords.calc_velocity_relative_full_range(
             &self.earth.coords,
-            sim_params.sim_solar_step as f64,
+            runtime_params.sim_solar_step as f64,
         );
     }
 
@@ -148,12 +141,12 @@ impl Environment {
     /// ### Argument
     /// 'sim_params" - Simulation parameters gathered at invocation time
     ///
-    pub fn advance_simulation_environment(&mut self, sim_params: &SimulationParameters) {
+    pub fn advance_simulation_environment(&mut self, runtime_params: &RuntimeParameters) {
         // Advance the simulation environment by configured simulation time step
-        self.sim_time_s += sim_params.sim_time_step as f64;
+        self.sim_time_s += runtime_params.sim_time_step as f64;
         // Perform a hard update if advanced current simulation time would exceed future simulation time
         if self.sim_time_s >= self.future_day_update_s {
-            self.update(sim_params);
+            self.update(runtime_params);
             // Exit out of function as hard update handled advance of simulation environment
             return;
         }
@@ -209,7 +202,7 @@ impl Environment {
     ///     new Environment loaded with all possible solar system objects tracked by the
     ///     simulation.
     ///
-    pub fn new(start_time: DateTime<Utc>, sim_params: &SimulationParameters) -> Environment {
+    pub fn new(start_time: DateTime<Utc>, runtime_params: &RuntimeParameters) -> Environment {
         let day = Environment::datetime_to_days(&start_time);
 
         let sun_precalc = make_sun();
@@ -219,7 +212,7 @@ impl Environment {
         let mut env = Environment {
             last_day_update_s: 0f64,
             sim_time_s: 0f64,
-            future_day_update_s: sim_params.sim_solar_step as f64,
+            future_day_update_s: runtime_params.sim_solar_step as f64,
             start_time,
             sun: sun_precalc,
             earth: earth_precalc,
@@ -227,7 +220,7 @@ impl Environment {
         };
 
         // This forces a hard update which calculates future locations of solar bodies
-        env.update(sim_params);
+        env.update(runtime_params);
 
         env
     }
