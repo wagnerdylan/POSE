@@ -21,6 +21,13 @@ pub struct SimulationParameters {
     #[arg(short, long, help = "name of desired output directory.")]
     pub output_dir: String,
     #[arg(
+        short,
+        long,
+        help = "Simulation duration between output writes. This parameter should be expressed in seconds.",
+        default_value_t = 1.0
+    )]
+    pub write_period: f64,
+    #[arg(
         long,
         help = "value to be used as the simulation time step in seconds.",
         default_value_t = 1.0
@@ -42,6 +49,7 @@ pub struct InitData {
 pub struct RuntimeParameters {
     pub date: DateTime<chrono::Utc>,      // Datetime in ISO 8601 format
     pub halt_date: DateTime<chrono::Utc>, // Date used as simulation stopping condition
+    pub write_period: f64,
     pub sim_time_step: f32,
     pub sim_solar_step: f32,
 }
@@ -78,6 +86,7 @@ pub fn collect_simulation_inputs(
     let runtime_params = RuntimeParameters {
         date: datetime_obj,
         halt_date: halt_date_obj,
+        write_period: sim_params.write_period,
         sim_time_step: sim_params.sim_time_step,
         sim_solar_step: sim_params.sim_solar_step,
     };

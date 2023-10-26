@@ -55,6 +55,31 @@ pub fn apply_perturbations(
     sim_obj.coords = updated_sim_obj_coords;
 }
 
+fn should_simulation_halt(
+    env: &bodies::Environment,
+    runtime_params: &input::RuntimeParameters,
+) -> bool {
+    env.start_time + chrono::Duration::milliseconds((env.get_sim_time() * 1000.0) as i64)
+        >= runtime_params.halt_date
+}
+
+fn write_out_simulation_results(
+    sim_bodies: &[bodies::SimobjT],
+    env: &bodies::Environment,
+    output_controller: &mut Box<dyn output::SimulationOutput>,
+    runtime_params: &input::RuntimeParameters,
+    last_write: f64,
+) -> f64 {
+    if env.get_sim_time() < last_write + runtime_params.write_period - 0.001 {
+        return last_write;
+    }
+
+    output::write_out_all_object_parameters(env, sim_bodies, output_controller.as_mut());
+    output::write_out_all_solar_objects(env, output_controller.as_mut());
+
+    env.get_sim_time()
+}
+
 /// Main entry point into the cpu_sim module, gathers all needed data for orbit modeling
 /// using Cowell's method.
 pub fn simulate(
@@ -66,19 +91,22 @@ pub fn simulate(
     // Allocate large buffer for holding perturbations
     let mut perturbation_vec: Vec<PerturbationOut> =
         Vec::with_capacity(sim_bodies.len() * MAX_NUM_OF_PERTURBATIONS);
+    let mut last_write = -f64::INFINITY;
 
     loop {
-        // Simulation halting condition. Return from function "simulate" will end simulation execution.
-        if env.start_time + chrono::Duration::milliseconds((env.get_sim_time() * 1000.0) as i64)
-            >= runtime_params.halt_date
-        {
-            break;
-        }
-
         // Write out simulation data at the start of the simulation loop as to capture
         // initial simulation state.
-        output::write_out_all_object_parameters(&env, &sim_bodies, output_controller.as_mut());
-        output::write_out_all_solar_objects(&env, output_controller.as_mut());
+        last_write = write_out_simulation_results(
+            &sim_bodies,
+            &env,
+            &mut output_controller,
+            &runtime_params,
+            last_write,
+        );
+        // Simulation halting condition. Return from function "simulate" will end simulation execution.
+        if should_simulation_halt(&env, &runtime_params) {
+            return;
+        }
 
         // Calculate and apply perturbations for every object
         // TODO parallelize this
