@@ -48,6 +48,7 @@ fn main() {
     // TODO: dont box this
     let output_controller = Box::new(output::csv_output::CSVController::new(
         sim_params.output_dir.as_str(),
+        runtime_params.write_out_pertub,
     ));
 
     cpu::sim_cpu::simulate(sim_bodies, env, output_controller, runtime_params);

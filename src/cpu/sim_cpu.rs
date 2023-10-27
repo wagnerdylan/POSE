@@ -89,8 +89,12 @@ pub fn simulate(
     runtime_params: input::RuntimeParameters,
 ) {
     // Allocate large buffer for holding perturbations
-    let mut perturbation_vec: Vec<PerturbationOut> =
-        Vec::with_capacity(sim_bodies.len() * MAX_NUM_OF_PERTURBATIONS);
+    let mut perturbation_vec: Option<Vec<PerturbationOut>> = match runtime_params.write_out_pertub {
+        true => Some(Vec::with_capacity(
+            sim_bodies.len() * MAX_NUM_OF_PERTURBATIONS,
+        )),
+        false => None,
+    };
     let mut last_write = -f64::INFINITY;
 
     loop {
@@ -115,18 +119,19 @@ pub fn simulate(
                 sim_obj,
                 &env,
                 runtime_params.sim_time_step as f64,
-                &mut Some(&mut perturbation_vec),
+                &mut perturbation_vec.as_mut(),
             );
 
             // TODO only call this every so often
             env.check_switch_soi(sim_obj);
         }
 
-        output::write_out_all_perturbations(&perturbation_vec, output_controller.as_mut());
+        if let Some(vec) = &mut perturbation_vec {
+            output::write_out_all_perturbations(&vec, output_controller.as_mut());
+            vec.clear();
+        }
 
         env.advance_simulation_environment(&runtime_params);
-
-        perturbation_vec.clear();
     }
 }
 
