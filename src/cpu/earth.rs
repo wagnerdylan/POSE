@@ -53,12 +53,14 @@ fn calculate_earth_atmospheric_drag_perturbation(
     }
 
     let atmos_model_result = nrlmsise00_model(env, sim_obj_alt);
-    let drag_force = sim_obj.drag_coeff
+    let norm_velocity = l2_norm(&sim_obj.velocity);
+    let drag_force = 0.5
+        * sim_obj.drag_coeff
         * sim_obj.drag_area
-        * 0.5
         * atmos_model_result.rho
-        * (sim_obj.velocity * sim_obj.velocity);
-    let drag_accel = drag_force / sim_obj.mass;
+        * norm_velocity.powf(2.0);
+    let drag_force_vector = -drag_force * (sim_obj.velocity / norm_velocity);
+    let drag_accel = drag_force_vector / sim_obj.mass;
 
     if let Some(out) = perturbations_out {
         out.push(output::PerturbationOut {
