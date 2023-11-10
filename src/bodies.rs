@@ -811,7 +811,7 @@ fn make_sun() -> Sun {
 fn make_earth(day: f64) -> Earth {
     let solar_trait = Solarobj::Earth {
         attr: Some(SolarAttr {
-            radius: 6.3781e6,
+            radius: 6371000.0,
             mass: 5.9722e24,
         }),
     };
