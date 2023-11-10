@@ -47,8 +47,8 @@ pub struct SimulationParameters {
 pub struct InitData {
     pub date: String,                     // Datetime in ISO 8601 format
     pub halt_date: String,                // Date used as simulation stopping condition
-    pub debris: Vec<bodies::SimobjT>,     // Debris objects
     pub spacecraft: Vec<bodies::SimobjT>, // Spacecraft objects
+    pub debris: Vec<bodies::SimobjT>,     // Debris objects
 }
 
 #[derive(Default)]

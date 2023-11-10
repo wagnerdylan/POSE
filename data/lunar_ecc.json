@@ -1,25 +1,25 @@
 {
-    "date": "2021-04-24T12:00:00Z",
-    "halt_date": "2021-08-24T12:00:00Z",
-    "debris": [],
-    "spacecraft": [
-        {
-            "soi": {
-                "type": "Moon"
-            },
-            "coords": {
-                "x": 0,
-                "y": 1.7381e6,
-                "z": 0
-            },
-            "velocity": {
-                "x": 2679.0,
-                "y": 0.0,
-                "z": 0
-            },
-            "drag_area": 20,
-            "drag_coeff": 1,
-            "mass": 1000
-        }
-    ]
+  "date": "2021-04-24T12:00:00Z",
+  "halt_date": "2021-08-24T12:00:00Z",
+  "spacecraft": [
+    {
+      "soi": {
+        "type": "Moon"
+      },
+      "coords": {
+        "x": 0,
+        "y": 1.7381e6,
+        "z": 0
+      },
+      "velocity": {
+        "x": 2679.0,
+        "y": 0.0,
+        "z": 0
+      },
+      "drag_area": 20,
+      "drag_coeff": 1,
+      "mass": 1000
+    }
+  ],
+  "debris": []
 }
