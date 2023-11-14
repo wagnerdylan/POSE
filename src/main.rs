@@ -20,12 +20,10 @@ extern crate strum;
 extern crate strum_macros;
 
 mod bodies;
-mod earth;
 mod input;
-mod moon;
 mod output;
+mod perturb;
 mod sim;
-mod sol;
 mod types;
 
 /// Initialize derived information from source information for each object within the simulation.
