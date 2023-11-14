@@ -1,11 +1,10 @@
-use super::sim_cpu::{self};
 use crate::{
     bodies, output,
     types::{l2_norm, Array3d},
 };
 use bodies::KeplerModel;
-
 use chrono::{Datelike, Duration, Timelike};
+use sim;
 
 fn nrlmsise00_model(
     env: &bodies::Environment,
@@ -85,7 +84,7 @@ fn calculate_earth_gravity_perturbation(
     let distance_vector_sim_obj = sim_obj.coords_abs - env.earth.coords.current_coords;
 
     // Calculate acceleration due to the earth at the location of the simulation object
-    let mut gravity_accel = sim_cpu::newton_gravitational_field(
+    let mut gravity_accel = sim::newton_gravitational_field(
         &distance_vector_sim_obj,
         env.earth.get_solar_object().get_mass_kg(),
     );
@@ -103,7 +102,7 @@ fn calculate_earth_gravity_perturbation(
     // Calculate the difference between the field on simulation object and solar object
     if let Some(soi_info) = soi_compensation {
         gravity_accel = gravity_accel
-            - sim_cpu::newton_gravitational_field(
+            - sim::newton_gravitational_field(
                 &soi_info,
                 env.earth.get_solar_object().get_mass_kg(),
             );

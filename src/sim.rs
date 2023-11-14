@@ -1,11 +1,9 @@
 use crate::{
-    bodies, input,
+    bodies, earth, input, moon,
     output::{self, PerturbationOut},
-    types,
+    sol, types,
+    types::Array3d,
 };
-use types::Array3d;
-
-use super::{earth, moon, sol};
 
 // Gravitational constant 6.674×10−11
 const G: f64 = 6.674e-11;

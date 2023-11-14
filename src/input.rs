@@ -39,7 +39,11 @@ pub struct SimulationParameters {
         default_value_t = 1.0
     )]
     pub sim_time_step: f32,
-    #[arg(long, help = "value to be used as the update period for solar objects.", default_value_t = 3600.0 * 12.0 )]
+    #[arg(
+        long,
+        help = "value to be used as the update period for solar objects.",
+        default_value_t = 3600.0
+    )]
     pub sim_solar_step: f32,
 }
 

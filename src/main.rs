@@ -20,9 +20,12 @@ extern crate strum;
 extern crate strum_macros;
 
 mod bodies;
-mod cpu;
+mod earth;
 mod input;
+mod moon;
 mod output;
+mod sim;
+mod sol;
 mod types;
 
 /// Initialize derived information from source information for each object within the simulation.
@@ -51,5 +54,5 @@ fn main() {
         runtime_params.write_out_pertub,
     ));
 
-    cpu::sim_cpu::simulate(sim_bodies, env, output_controller, runtime_params);
+    sim::simulate(sim_bodies, env, output_controller, runtime_params);
 }

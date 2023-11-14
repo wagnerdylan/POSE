@@ -1,7 +1,6 @@
 use crate::{bodies, output, types::Array3d};
 use bodies::KeplerModel;
-
-use super::sim_cpu;
+use sim;
 
 fn calculate_moon_gravity_perturbation(
     sim_obj: &bodies::SimobjT,
@@ -12,7 +11,7 @@ fn calculate_moon_gravity_perturbation(
     let distance_vector_sim_obj = sim_obj.coords_abs - env.moon.coords.current_coords;
 
     // Calculate acceleration due to the moon at the location of the simulation object
-    let gravity_accel = sim_cpu::newton_gravitational_field(
+    let gravity_accel = sim::newton_gravitational_field(
         &distance_vector_sim_obj,
         env.moon.get_solar_object().get_mass_kg(),
     );

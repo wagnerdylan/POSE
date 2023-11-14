@@ -1,7 +1,7 @@
 use crate::{bodies, output, types::Array3d};
 use bodies::KeplerModel;
 
-use super::sim_cpu;
+use sim;
 
 fn calculate_solar_gravity_perturbation(
     sim_obj: &bodies::SimobjT,
@@ -12,7 +12,7 @@ fn calculate_solar_gravity_perturbation(
     let distance_vector_sim_obj = sim_obj.coords_abs - env.sun.coords.current_coords;
 
     // Calculate acceleration due to the sun at the location of the simulation object
-    let mut gravity_accel = sim_cpu::newton_gravitational_field(
+    let mut gravity_accel = sim::newton_gravitational_field(
         &distance_vector_sim_obj,
         env.sun.get_solar_object().get_mass_kg(),
     );
@@ -32,10 +32,7 @@ fn calculate_solar_gravity_perturbation(
     // Calculate the difference between the field on simulation object and solar object
     if let Some(soi_info) = soi_compensation {
         gravity_accel = gravity_accel
-            - sim_cpu::newton_gravitational_field(
-                &soi_info,
-                env.sun.get_solar_object().get_mass_kg(),
-            );
+            - sim::newton_gravitational_field(&soi_info, env.sun.get_solar_object().get_mass_kg());
     }
 
     if let Some(out) = perturbations_out {
