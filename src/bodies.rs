@@ -501,12 +501,12 @@ mod kepler_utilities {
 
     /// Calculates the mean anomaly for the Sun.
     fn mean_anomaly_of_sun(day: f64) -> f64 {
-        (356.0470 + (0.9856002585 * day)) as f64
+        356.0470 + (0.9856002585 * day)
     }
 
     /// Calculates the argument of perihelion for the Sun.
     fn sun_argument_of_perihelion(day: f64) -> f64 {
-        (282.9404 + (4.70935e-5 * day)) as f64
+        282.9404 + (4.70935e-5 * day)
     }
 
     /// Calculates the ecliptic latitude and longitude for the given inputs.
@@ -577,9 +577,9 @@ mod kepler_utilities {
         let zp = r * sinlat;
 
         Array3d {
-            x: xp as f64,
-            y: yp as f64,
-            z: zp as f64,
+            x: xp,
+            y: yp,
+            z: zp,
         }
     }
 }
@@ -609,10 +609,8 @@ impl SolarobjCoords {
     ///
     fn lerp_set(&mut self, interp_point: f64) {
         // Precise method, which guarantees v = v1 when t = 1.
-        let interp_method =
-            |v0: &Array3d, v1: &Array3d, t: f64| -> Array3d { ((1f64 - t) * v0) + (t * v1) };
-
-        self.current_coords = interp_method(&self.behind_coords, &self.ahead_coords, interp_point);
+        self.current_coords =
+            ((1f64 - interp_point) * self.behind_coords) + interp_point * self.ahead_coords;
     }
 
     /// Calculate the velocity of the solar obj from behind to ahead coords.
@@ -681,7 +679,7 @@ impl KeplerModel for PlanetPS {
         yh *= AU_METER;
         zh *= AU_METER;
 
-        self.perturb(xh as f64, yh as f64, zh as f64, day)
+        self.perturb(xh, yh, zh, day)
     }
 
     /// Calculates additional perturbations on top of main heliocentric position calculation.

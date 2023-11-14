@@ -115,7 +115,7 @@ pub fn simulate(
         }
 
         if let Some(vec) = &mut perturbation_vec {
-            output::write_out_all_perturbations(&vec, output_controller.as_mut());
+            output::write_out_all_perturbations(vec, output_controller.as_mut());
             vec.clear();
         }
 
