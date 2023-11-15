@@ -1,7 +1,7 @@
 use bodies::sim_object::{SimObjectType, SimobjT};
 use chrono::DateTime;
 use clap::Parser;
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use std::{error::Error, fs::File, io::BufReader, path::Path};
 
 #[derive(Parser, Debug)]
@@ -46,18 +46,26 @@ pub struct SimulationParameters {
     pub sim_solar_step: f32,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Deserialize)]
+pub struct SwIndex(DateTime<chrono::Utc>, DateTime<chrono::Utc>, f64, f64, f64);
+
+#[derive(Deserialize)]
 pub struct InitData {
-    pub date: String,             // Datetime in ISO 8601 format
-    pub halt_date: String,        // Date used as simulation stopping condition
-    pub spacecraft: Vec<SimobjT>, // Spacecraft objects
-    pub debris: Vec<SimobjT>,     // Debris objects
+    pub date: DateTime<chrono::Utc>,      // Datetime in ISO 8601 format.
+    pub halt_date: DateTime<chrono::Utc>, // Date used as simulation stopping condition.
+    pub spacecraft: Vec<SimobjT>,         // Spacecraft objects.
+    pub debris: Vec<SimobjT>,             // Debris objects.
+    pub earth_sw: Vec<SwIndex>,           // Space Weather Data for Earth atmospheric model.
+}
+
+pub struct EnvInitData {
+    pub earth_sw: Vec<SwIndex>, // Space Weather Data for Earth atmospheric model.
 }
 
 #[derive(Default)]
 pub struct RuntimeParameters {
-    pub date: DateTime<chrono::Utc>,      // Datetime in ISO 8601 format
-    pub halt_date: DateTime<chrono::Utc>, // Date used as simulation stopping condition
+    pub date: DateTime<chrono::Utc>,      // Datetime in ISO 8601 format.
+    pub halt_date: DateTime<chrono::Utc>, // Date used as simulation stopping condition.
     pub write_period: f64,
     pub write_out_pertub: bool,
     pub sim_time_step: f32,
@@ -66,7 +74,7 @@ pub struct RuntimeParameters {
 
 pub fn collect_simulation_inputs(
     sim_params: &SimulationParameters,
-) -> (Vec<SimobjT>, RuntimeParameters) {
+) -> (Vec<SimobjT>, RuntimeParameters, EnvInitData) {
     let mut sim_bodies: Vec<SimobjT> = Vec::new();
 
     let ser_objs = read_object_from_file(&sim_params.configuration).unwrap();
@@ -84,25 +92,20 @@ pub fn collect_simulation_inputs(
 
     assign_id(&mut sim_bodies);
 
-    let datetime = ser_objs.date;
-    let datetime_obj = datetime
-        .parse::<DateTime<chrono::Utc>>()
-        .expect("Input file contains invalid datetime format, expected ISO 8601 format.");
-    let halt_date = ser_objs.halt_date;
-    let halt_date_obj = halt_date
-        .parse::<DateTime<chrono::Utc>>()
-        .expect("Input file contains invalid datetime format, expected ISO 8601 format.");
-
     let runtime_params = RuntimeParameters {
-        date: datetime_obj,
-        halt_date: halt_date_obj,
+        date: ser_objs.date,
+        halt_date: ser_objs.halt_date,
         write_period: sim_params.write_period,
         write_out_pertub: sim_params.write_out_pertub,
         sim_time_step: sim_params.sim_time_step,
         sim_solar_step: sim_params.sim_solar_step,
     };
 
-    (sim_bodies, runtime_params)
+    let env_init_data = EnvInitData {
+        earth_sw: ser_objs.earth_sw,
+    };
+
+    (sim_bodies, runtime_params, env_init_data)
 }
 
 /// Function responsible for handling opening the file and connecting the

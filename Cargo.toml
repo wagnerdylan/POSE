@@ -8,7 +8,7 @@ authors = ["Dylan Wagner <drw6528@rit.edu>"]
 serde = { version = "*", features = ["derive"] }
 serde_json = "*"
 clap = { version = "*", features = ["derive"] }
-chrono = "*"
+chrono = { version = "*", features = ["serde"] }
 strum = "*"
 strum_macros = "*"
 csv = "*"

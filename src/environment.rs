@@ -7,7 +7,7 @@ use crate::{
             make_earth, make_moon, make_sun, Earth, KeplerModel, PlanetPS, Solarobj, Sun,
         },
     },
-    input::RuntimeParameters,
+    input::{EnvInitData, RuntimeParameters},
     output,
     types::{self, Array3d},
 };
@@ -150,17 +150,8 @@ impl Environment {
         (*datetime_obj - origin_dt).num_seconds() as f64 / 86400f64
     }
 
-    /// Creates the initial solar system
-    ///
-    /// ### Argument
-    /// * 'day' - The day value greater than zero. From 2000-01-01
-    ///
-    /// ### Return
-    ///     new Environment loaded with all possible solar system objects tracked by the
-    ///     simulation.
-    ///
-    pub fn new(start_time: DateTime<Utc>, runtime_params: &RuntimeParameters) -> Environment {
-        let day = Environment::datetime_to_days(&start_time);
+    pub fn new(runtime_params: &RuntimeParameters, _init_data: EnvInitData) -> Environment {
+        let day = Environment::datetime_to_days(&runtime_params.date);
 
         let sun_precalc = make_sun();
         let earth_precalc = make_earth(day);
@@ -170,7 +161,7 @@ impl Environment {
             last_day_update_s: 0f64,
             sim_time_s: 0f64,
             future_day_update_s: runtime_params.sim_solar_step as f64,
-            start_time,
+            start_time: runtime_params.date,
             sun: sun_precalc,
             earth: earth_precalc,
             moon: moon_precalc,

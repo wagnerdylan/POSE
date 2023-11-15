@@ -42,8 +42,8 @@ fn init_simulation_objects(env: &environment::Environment, sim_objs: &mut Vec<Si
 fn main() {
     let sim_params = input::SimulationParameters::parse();
 
-    let (mut sim_bodies, runtime_params) = input::collect_simulation_inputs(&sim_params);
-    let env = environment::Environment::new(runtime_params.date, &runtime_params);
+    let (mut sim_bodies, runtime_params, env_init) = input::collect_simulation_inputs(&sim_params);
+    let env = environment::Environment::new(&runtime_params, env_init);
 
     init_simulation_objects(&env, &mut sim_bodies);
 
