@@ -150,11 +150,11 @@ impl Environment {
         (*datetime_obj - origin_dt).num_seconds() as f64 / 86400f64
     }
 
-    pub fn new(runtime_params: &RuntimeParameters, _init_data: EnvInitData) -> Environment {
+    pub fn new(runtime_params: &RuntimeParameters, init_data: EnvInitData) -> Environment {
         let day = Environment::datetime_to_days(&runtime_params.date);
 
         let sun_precalc = make_sun();
-        let earth_precalc = make_earth(day);
+        let earth_precalc = make_earth(day, &init_data.earth_sw);
         let moon_precalc = make_moon(day, &earth_precalc.coords.current_coords);
 
         let mut env = Environment {

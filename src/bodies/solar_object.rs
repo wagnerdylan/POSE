@@ -1,6 +1,9 @@
+use chrono::DateTime;
 use serde::{Deserialize, Serialize};
 use strum_macros::Display;
 use types::Array3d;
+
+use crate::input::SwIndex;
 
 const METERS_PER_ASTRONOMICAL_UNIT: f64 = 1.4959787e+11;
 const METERS_PER_EARTH_EQUATORIAL_RADIUS: f64 = 6378140.0;
@@ -77,6 +80,7 @@ pub struct Earth {
     solartype: Solarobj,
     pub coords: SolarobjCoords,
     pub velocity: Array3d,
+    sw_indices: Vec<SwIndex>,
 }
 
 #[derive(Clone)]
@@ -389,6 +393,20 @@ impl KeplerModel for Earth {
     }
 }
 
+impl Earth {
+    pub fn get_space_weather_index(&self, query_time: DateTime<chrono::Utc>) -> &SwIndex {
+        // if current index did not match the query, search the entire index list for a match.
+        for sw_index in self.sw_indices.iter() {
+            if sw_index.0 <= query_time && query_time <= sw_index.1 {
+                return sw_index;
+            }
+        }
+
+        // no index match was made so just return the first index.
+        self.sw_indices.get(0).unwrap()
+    }
+}
+
 impl KeplerModel for Sun {
     fn ecliptic_cartesian_coords(&self, _day: f64) -> Array3d {
         Array3d {
@@ -422,15 +440,7 @@ pub fn make_sun() -> Sun {
     }
 }
 
-/// Create the earth.
-///
-/// ### Argument
-/// * 'day' - Day value greater than zero.
-///
-/// ### Return
-///      A newly created earth object.
-///
-pub fn make_earth(day: f64) -> Earth {
+pub fn make_earth(day: f64, sw_indices: &Vec<SwIndex>) -> Earth {
     let solar_trait = Solarobj::Earth {
         attr: Some(SolarAttr {
             radius: 6371000.0,
@@ -438,10 +448,16 @@ pub fn make_earth(day: f64) -> Earth {
         }),
     };
 
+    // Ensure atleast one element is always included into the earth space weather indices list.
+    let mut sw_indices_clone = sw_indices.clone();
+    if sw_indices_clone.is_empty() {
+        sw_indices_clone.push(SwIndex::default());
+    }
     let mut earth_body = Earth {
         solartype: solar_trait,
         coords: SolarobjCoords::default(),
         velocity: Array3d::default(), // Zero until sim update
+        sw_indices: sw_indices_clone,
     };
 
     let initial_coords = earth_body.ecliptic_cartesian_coords(day);

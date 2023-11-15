@@ -14,6 +14,8 @@ fn nrlmsise00_model(env: &Environment, sim_obj_alt_meters: f64) -> nrlmsise00c::
     let current_datetime =
         env.start_time + Duration::milliseconds((env.get_sim_time() * 1000.0) as i64);
     let seconds_from_midnight = current_datetime.num_seconds_from_midnight() as f64;
+    let sw_index = env.earth.get_space_weather_index(current_datetime);
+
     let mut input = nrlmsise00c::NRLMSISEInput {
         year: current_datetime.year(),
         doy: current_datetime.ordinal() as i32,
@@ -24,9 +26,9 @@ fn nrlmsise00_model(env: &Environment, sim_obj_alt_meters: f64) -> nrlmsise00c::
         g_lat: 0.0,
         g_long: 0.0,
         lst: seconds_from_midnight / 3600.0 + 0.0 / 15.0, // (lst=sec/3600 + g_long/15)
-        f107A: 69.0,
-        f107: 69.0,
-        ap: 7.0,
+        f107A: sw_index.4,
+        f107: sw_index.3,
+        ap: sw_index.2,
         ap_a: [0f64; 7usize],
     };
     let flags = nrlmsise00c::NRLMSISEFlags {
