@@ -1,15 +1,16 @@
 use crate::{
-    bodies, output,
+    bodies::{
+        sim_object::SimobjT,
+        solar_object::{KeplerModel, Solarobj},
+    },
+    environment::Environment,
+    output,
     types::{l2_norm, Array3d},
 };
-use bodies::KeplerModel;
 use chrono::{Datelike, Duration, Timelike};
 use perturb::common;
 
-fn nrlmsise00_model(
-    env: &bodies::Environment,
-    sim_obj_alt_meters: f64,
-) -> nrlmsise00c::NRLMSISEOutput {
+fn nrlmsise00_model(env: &Environment, sim_obj_alt_meters: f64) -> nrlmsise00c::NRLMSISEOutput {
     let current_datetime =
         env.start_time + Duration::milliseconds((env.get_sim_time() * 1000.0) as i64);
     let seconds_from_midnight = current_datetime.num_seconds_from_midnight() as f64;
@@ -38,8 +39,8 @@ fn nrlmsise00_model(
 }
 
 fn calculate_earth_atmospheric_drag_perturbation(
-    sim_obj: &bodies::SimobjT,
-    env: &bodies::Environment,
+    sim_obj: &SimobjT,
+    env: &Environment,
     perturbations_out: &mut Option<&mut Vec<output::PerturbationOut>>,
 ) -> Array3d {
     let distance_sim_obj = l2_norm(&(sim_obj.coords_abs - env.earth.coords.current_coords));
@@ -76,8 +77,8 @@ fn calculate_earth_atmospheric_drag_perturbation(
 }
 
 fn calculate_earth_gravity_perturbation(
-    sim_obj: &bodies::SimobjT,
-    env: &bodies::Environment,
+    sim_obj: &SimobjT,
+    env: &Environment,
     perturbations_out: &mut Option<&mut Vec<output::PerturbationOut>>,
 ) -> Array3d {
     // Calculate distance between the earth and the sim object using absolute coordinates
@@ -92,9 +93,9 @@ fn calculate_earth_gravity_perturbation(
     // If the simulation object is not in the solar SOI, the gravity field must be compensated
     // This is because perturbation calculations are done relative to the SOI
     let soi_compensation = match sim_obj.soi {
-        bodies::Solarobj::Sun { attr: _ } => None,
-        bodies::Solarobj::Earth { attr: _ } => None,
-        bodies::Solarobj::Moon { attr: _ } => {
+        Solarobj::Sun { attr: _ } => None,
+        Solarobj::Earth { attr: _ } => None,
+        Solarobj::Moon { attr: _ } => {
             Some(env.moon.coords.current_coords - env.earth.coords.current_coords)
         }
     };
@@ -123,8 +124,8 @@ fn calculate_earth_gravity_perturbation(
 }
 
 pub fn calculate_earth_perturbations(
-    sim_obj: &bodies::SimobjT,
-    env: &bodies::Environment,
+    sim_obj: &SimobjT,
+    env: &Environment,
     perturbations_out: &mut Option<&mut Vec<output::PerturbationOut>>,
 ) -> Array3d {
     calculate_earth_gravity_perturbation(sim_obj, env, perturbations_out)

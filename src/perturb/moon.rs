@@ -1,10 +1,14 @@
-use crate::{bodies, output, types::Array3d};
-use bodies::KeplerModel;
+use crate::{
+    bodies::{sim_object::SimobjT, solar_object::KeplerModel},
+    environment::Environment,
+    output,
+    types::Array3d,
+};
 use perturb::common;
 
 fn calculate_moon_gravity_perturbation(
-    sim_obj: &bodies::SimobjT,
-    env: &bodies::Environment,
+    sim_obj: &SimobjT,
+    env: &Environment,
     perturbations_out: &mut Option<&mut Vec<output::PerturbationOut>>,
 ) -> Array3d {
     // Calculate distance between the moon and the sim object using absolute coordinates
@@ -31,8 +35,8 @@ fn calculate_moon_gravity_perturbation(
 }
 
 pub fn calculate_moon_perturbations(
-    sim_obj: &bodies::SimobjT,
-    env: &bodies::Environment,
+    sim_obj: &SimobjT,
+    env: &Environment,
     perturbations_out: &mut Option<&mut Vec<output::PerturbationOut>>,
 ) -> Array3d {
     calculate_moon_gravity_perturbation(sim_obj, env, perturbations_out)

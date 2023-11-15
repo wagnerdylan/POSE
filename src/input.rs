@@ -1,5 +1,4 @@
-use super::bodies;
-
+use bodies::sim_object::{SimObjectType, SimobjT};
 use chrono::DateTime;
 use clap::Parser;
 use serde::{Deserialize, Serialize};
@@ -49,10 +48,10 @@ pub struct SimulationParameters {
 
 #[derive(Serialize, Deserialize)]
 pub struct InitData {
-    pub date: String,                     // Datetime in ISO 8601 format
-    pub halt_date: String,                // Date used as simulation stopping condition
-    pub spacecraft: Vec<bodies::SimobjT>, // Spacecraft objects
-    pub debris: Vec<bodies::SimobjT>,     // Debris objects
+    pub date: String,             // Datetime in ISO 8601 format
+    pub halt_date: String,        // Date used as simulation stopping condition
+    pub spacecraft: Vec<SimobjT>, // Spacecraft objects
+    pub debris: Vec<SimobjT>,     // Debris objects
 }
 
 #[derive(Default)]
@@ -67,19 +66,19 @@ pub struct RuntimeParameters {
 
 pub fn collect_simulation_inputs(
     sim_params: &SimulationParameters,
-) -> (Vec<bodies::SimobjT>, RuntimeParameters) {
-    let mut sim_bodies: Vec<bodies::SimobjT> = Vec::new();
+) -> (Vec<SimobjT>, RuntimeParameters) {
+    let mut sim_bodies: Vec<SimobjT> = Vec::new();
 
     let ser_objs = read_object_from_file(&sim_params.configuration).unwrap();
 
     //add objects to sim_bodies
     for mut elem in ser_objs.debris {
-        elem.sim_object_type = bodies::SimObjectType::Debris;
+        elem.sim_object_type = SimObjectType::Debris;
         sim_bodies.push(elem);
     }
 
     for mut elem in ser_objs.spacecraft {
-        elem.sim_object_type = bodies::SimObjectType::Spacecraft;
+        elem.sim_object_type = SimObjectType::Spacecraft;
         sim_bodies.push(elem);
     }
 
@@ -133,7 +132,7 @@ fn read_object_from_file<P: AsRef<Path>>(path: &P) -> Result<InitData, Box<dyn E
 /// ### Argument
 /// * 'sim_bodies' - A vector containing both debris and spacecraft objects.
 ///
-fn assign_id(sim_bodies: &mut Vec<bodies::SimobjT>) {
+fn assign_id(sim_bodies: &mut Vec<SimobjT>) {
     let mut id_inc: u32 = 1;
 
     for body in sim_bodies {

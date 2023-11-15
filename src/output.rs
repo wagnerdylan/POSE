@@ -1,6 +1,6 @@
 use serde::Serialize;
 
-use crate::bodies;
+use crate::{bodies, environment};
 
 #[derive(Debug, Serialize)]
 pub struct SolarObjectOut {
@@ -124,7 +124,7 @@ pub mod csv_output {
 }
 
 pub fn write_out_all_solar_objects(
-    env: &bodies::Environment,
+    env: &environment::Environment,
     output_controller: &mut dyn SimulationOutput,
 ) {
     output_controller.write_out_solar_object(env.sun_to_output_form());
@@ -142,8 +142,8 @@ pub fn write_out_all_perturbations(
 }
 
 pub fn write_out_all_object_parameters(
-    env: &bodies::Environment,
-    sim_objects: &[bodies::SimobjT],
+    env: &environment::Environment,
+    sim_objects: &[bodies::sim_object::SimobjT],
     output_controller: &mut dyn SimulationOutput,
 ) {
     for sim_obj in sim_objects {

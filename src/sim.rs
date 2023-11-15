@@ -1,6 +1,8 @@
+use crate::bodies::sim_object::SimobjT;
+use crate::environment::Environment;
 use crate::perturb;
 use crate::{
-    bodies, input,
+    input,
     output::{self, PerturbationOut},
     types::Array3d,
 };
@@ -8,8 +10,8 @@ use crate::{
 const MAX_NUM_OF_PERTURBATIONS: usize = 4;
 
 pub fn apply_perturbations(
-    sim_obj: &mut bodies::SimobjT,
-    env: &bodies::Environment,
+    sim_obj: &mut SimobjT,
+    env: &Environment,
     step_time_s: f64,
     perturbations_out: &mut Option<&mut Vec<PerturbationOut>>,
 ) {
@@ -43,17 +45,14 @@ pub fn apply_perturbations(
     sim_obj.coords = updated_sim_obj_coords;
 }
 
-fn should_simulation_halt(
-    env: &bodies::Environment,
-    runtime_params: &input::RuntimeParameters,
-) -> bool {
+fn should_simulation_halt(env: &Environment, runtime_params: &input::RuntimeParameters) -> bool {
     env.start_time + chrono::Duration::milliseconds((env.get_sim_time() * 1000.0) as i64)
         >= runtime_params.halt_date
 }
 
 fn write_out_simulation_results(
-    sim_bodies: &[bodies::SimobjT],
-    env: &bodies::Environment,
+    sim_bodies: &[SimobjT],
+    env: &Environment,
     output_controller: &mut Box<dyn output::SimulationOutput>,
     runtime_params: &input::RuntimeParameters,
     last_write: f64,
@@ -71,8 +70,8 @@ fn write_out_simulation_results(
 /// Main entry point into the cpu_sim module, gathers all needed data for orbit modeling
 /// using Cowell's method.
 pub fn simulate(
-    mut sim_bodies: Vec<bodies::SimobjT>,
-    mut env: bodies::Environment,
+    mut sim_bodies: Vec<SimobjT>,
+    mut env: Environment,
     mut output_controller: Box<dyn output::SimulationOutput>,
     runtime_params: input::RuntimeParameters,
 ) {

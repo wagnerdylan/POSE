@@ -2,7 +2,7 @@
 //! POSE - Parallel Orbital Simulation Environment
 //! TODO - Add more doc
 
-use bodies::{Environment, SimobjT};
+use bodies::sim_object::SimobjT;
 use clap::Parser;
 
 #[macro_use]
@@ -20,6 +20,7 @@ extern crate strum;
 extern crate strum_macros;
 
 mod bodies;
+mod environment;
 mod input;
 mod output;
 mod perturb;
@@ -32,7 +33,7 @@ mod types;
 /// * 'env' - Simulation environment
 /// * 'sim_objs' - Array slice of simulation objects
 ///
-fn init_simulation_objects(env: &Environment, sim_objs: &mut Vec<SimobjT>) {
+fn init_simulation_objects(env: &environment::Environment, sim_objs: &mut Vec<SimobjT>) {
     for sim_obj in sim_objs {
         sim_obj.coords_abs = env.calculate_abs_coords(sim_obj);
     }
@@ -42,7 +43,7 @@ fn main() {
     let sim_params = input::SimulationParameters::parse();
 
     let (mut sim_bodies, runtime_params) = input::collect_simulation_inputs(&sim_params);
-    let env = bodies::Environment::new(runtime_params.date, &runtime_params);
+    let env = environment::Environment::new(runtime_params.date, &runtime_params);
 
     init_simulation_objects(&env, &mut sim_bodies);
 
