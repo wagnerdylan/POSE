@@ -3,7 +3,10 @@ import pandas as pd
 import numpy as np
 import datetime
 
-parser = argparse.ArgumentParser(prog="ISS Trajectory Compare")
+prog_description = "Compare simulation output to NASA produced ISS trajectory values posted on https://spotthestation.nasa.gov/trajectory_data.cfm."
+parser = argparse.ArgumentParser(
+    prog="ISS Trajectory Compare", description=prog_description
+)
 parser.add_argument(
     "iss_data",
     help="Filepath to the iss trajectory file to be used for comparison.",
