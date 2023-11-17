@@ -2,6 +2,7 @@ use chrono::{DateTime, Duration, TimeZone, Utc};
 
 use crate::{
     bodies::{
+        self,
         sim_object::SimobjT,
         solar_object::{
             make_earth, make_moon, make_sun, Earth, KeplerModel, PlanetPS, Solarobj, Sun,
@@ -118,20 +119,25 @@ impl Environment {
         self.moon.coords.lerp_set(interp_point);
     }
 
-    /// Calculate the absolute coordinates for the simulation object
-    ///
-    /// ### Arguments
-    /// * 'sim_obj' - The simulation object
-    ///
-    /// ### Return
-    /// The absolute coordinates for the input simulation object.
-    ///
-    pub fn calculate_abs_coords(&self, sim_obj: &SimobjT) -> Array3d {
+    // Calculate solar ecliptic coordinates for a given simulation object from
+    // the soi inertial reference frame.
+    pub fn calculate_se_coords(&self, sim_obj: &SimobjT) -> Array3d {
         match sim_obj.soi {
             Solarobj::Sun { attr: _, .. } => self.sun.coords.current_coords + sim_obj.coords,
-            Solarobj::Earth { attr: _, .. } => self.earth.coords.current_coords + sim_obj.coords,
-            // Lunar coords are abs also
-            Solarobj::Moon { attr: _, .. } => self.moon.coords.current_coords + sim_obj.coords,
+            Solarobj::Earth { attr: _, .. } => {
+                self.earth.coords.current_coords
+                    + bodies::common::equatorial_to_ecliptic(
+                        &sim_obj.coords,
+                        self.earth.get_solar_object().get_obliquity(),
+                    )
+            }
+            Solarobj::Moon { attr: _, .. } => {
+                self.moon.coords.current_coords
+                    + bodies::common::equatorial_to_ecliptic(
+                        &sim_obj.coords,
+                        self.moon.get_solar_object().get_obliquity(),
+                    )
+            }
         }
     }
 

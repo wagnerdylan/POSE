@@ -24,8 +24,9 @@ pub enum Solarobj {
 
 #[derive(Clone, Deserialize, Serialize)]
 pub struct SolarAttr {
-    radius: f64, // meters
-    mass: f64,   // kg
+    radius: f64,    // meters
+    mass: f64,      // kg
+    obliquity: f64, // degrees relative to the ecliptic
 }
 
 impl Solarobj {
@@ -46,6 +47,16 @@ impl Solarobj {
             Solarobj::Sun { attr } => attr.as_ref().expect(ERROR_MSG).radius,
             Solarobj::Earth { attr } => attr.as_ref().expect(ERROR_MSG).radius,
             Solarobj::Moon { attr } => attr.as_ref().expect(ERROR_MSG).radius,
+        }
+    }
+
+    pub fn get_obliquity(&self) -> f64 {
+        const ERROR_MSG: &str = "Enum has some field for attr";
+
+        match self {
+            Solarobj::Sun { attr } => attr.as_ref().expect(ERROR_MSG).obliquity,
+            Solarobj::Earth { attr } => attr.as_ref().expect(ERROR_MSG).obliquity,
+            Solarobj::Moon { attr } => attr.as_ref().expect(ERROR_MSG).obliquity,
         }
     }
 }
@@ -421,15 +432,12 @@ impl KeplerModel for Sun {
     }
 }
 
-///  Create the sun.
-///
-///  ### Return
-///       A newly crafted sun object.
 pub fn make_sun() -> Sun {
     let solar_trait = Solarobj::Sun {
         attr: Some(SolarAttr {
             radius: 6.95700e8,
             mass: 1.9891e30,
+            obliquity: 0.0,
         }),
     };
 
@@ -445,10 +453,11 @@ pub fn make_earth(day: f64, sw_indices: &Vec<SwIndex>) -> Earth {
         attr: Some(SolarAttr {
             radius: 6371000.0,
             mass: 5.9722e24,
+            obliquity: 23.44,
         }),
     };
 
-    // Ensure atleast one element is always included into the earth space weather indices list.
+    // Ensure at least one element is always included into the earth space weather indices list.
     let mut sw_indices_clone = sw_indices.clone();
     if sw_indices_clone.is_empty() {
         sw_indices_clone.push(SwIndex::default());
@@ -468,19 +477,12 @@ pub fn make_earth(day: f64, sw_indices: &Vec<SwIndex>) -> Earth {
     earth_body
 }
 
-/// Create the moon, geocentric.
-///
-/// ### Argument
-/// * 'day' - Day value greater than zero.
-///
-/// ### Return
-///     A newly created moon PlanetPS object.
-///
 pub fn make_moon(day: f64, earth_coords: &Array3d) -> PlanetPS {
     let solar_trait = Solarobj::Moon {
         attr: Some(SolarAttr {
             radius: 1.7381e6,
-            mass: 0.07346e24,
+            mass: 7.3459e22,
+            obliquity: 1.5424,
         }),
     };
 

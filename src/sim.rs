@@ -15,11 +15,11 @@ pub fn apply_perturbations(
     step_time_s: f64,
     perturbations_out: &mut Option<&mut Vec<PerturbationOut>>,
 ) {
-    // Update absolute coordinates for use in perturbation calculations
-    sim_obj.coords_abs = env.calculate_abs_coords(sim_obj);
+    // Update solar ecliptic coordinates for use in perturbation calculations.
+    sim_obj.coords_abs = env.calculate_se_coords(sim_obj);
 
     let mut net_acceleration = Array3d::default();
-    // Calculate the perturbation forces for all planetary objects
+    // Calculate the perturbation forces for all planetary objects.
     net_acceleration = net_acceleration
         + perturb::sol::calculate_solar_perturbations(sim_obj, env, perturbations_out);
     net_acceleration = net_acceleration
@@ -30,17 +30,17 @@ pub fn apply_perturbations(
     // Velocity and displacement calculations use Euler–Cromer integration as errors
     // in Euler–Cromer do not grow exponentially thus providing the most stable orbit.
 
-    // Calculate the velocity change from net acceleration
+    // Calculate the velocity change from net acceleration.
     let velocity_delta = net_acceleration * step_time_s;
-    // Calculate new velocity for the given simulation object
+    // Calculate new velocity for the given simulation object.
     let updated_sim_obj_velocity = velocity_delta + sim_obj.velocity;
 
-    // Calculate the position change from the updated velocity
+    // Calculate the position change from the updated velocity.
     let position_displacement = updated_sim_obj_velocity * step_time_s;
-    // Calculate the new position for the simulation object
+    // Calculate the new position for the simulation object.
     let updated_sim_obj_coords = position_displacement + sim_obj.coords;
 
-    // Update the new values within the simulation object
+    // Update the new values within the simulation object.
     sim_obj.velocity = updated_sim_obj_velocity;
     sim_obj.coords = updated_sim_obj_coords;
 }

@@ -1,5 +1,6 @@
 use crate::{
     bodies::{
+        self,
         sim_object::SimobjT,
         solar_object::{KeplerModel, Solarobj},
     },
@@ -94,22 +95,21 @@ fn calculate_earth_gravity_perturbation(
 
     // If the simulation object is not in the solar SOI, the gravity field must be compensated
     // This is because perturbation calculations are done relative to the SOI
-    let soi_compensation = match sim_obj.soi {
-        Solarobj::Sun { attr: _ } => None,
-        Solarobj::Earth { attr: _ } => None,
-        Solarobj::Moon { attr: _ } => {
-            Some(env.moon.coords.current_coords - env.earth.coords.current_coords)
-        }
+    gravity_accel = match sim_obj.soi {
+        Solarobj::Sun { attr: _ } => gravity_accel,
+        Solarobj::Earth { attr: _ } => bodies::common::ecliptic_to_equatorial(
+            &gravity_accel,
+            env.earth.get_solar_object().get_obliquity(),
+        ),
+        Solarobj::Moon { attr: _ } => bodies::common::ecliptic_to_equatorial(
+            &(gravity_accel
+                - common::newton_gravitational_field(
+                    &(env.moon.coords.current_coords - env.earth.coords.current_coords),
+                    env.earth.get_solar_object().get_mass_kg(),
+                )),
+            env.moon.get_solar_object().get_obliquity(),
+        ),
     };
-
-    // Calculate the difference between the field on simulation object and solar object
-    if let Some(soi_info) = soi_compensation {
-        gravity_accel = gravity_accel
-            - common::newton_gravitational_field(
-                &soi_info,
-                env.earth.get_solar_object().get_mass_kg(),
-            );
-    }
 
     if let Some(out) = perturbations_out {
         out.push(output::PerturbationOut {
