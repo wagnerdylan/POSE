@@ -2,7 +2,7 @@ use crate::{
     bodies::{
         self,
         sim_object::SimobjT,
-        solar_object::{KeplerModel, Solarobj},
+        solar_model::{KeplerModel, Solarobj},
     },
     environment::Environment,
     output,
@@ -46,8 +46,9 @@ fn calculate_earth_atmospheric_drag_perturbation(
     env: &Environment,
     perturbations_out: &mut Option<&mut Vec<output::PerturbationOut>>,
 ) -> Array3d {
-    let distance_sim_obj = l2_norm(&(sim_obj.coords_abs - env.earth.coords.current_coords));
-    let sim_obj_alt = distance_sim_obj - env.earth.get_solar_object().get_radius_meters();
+    let distance_sim_obj =
+        l2_norm(&(sim_obj.coords_abs - env.earth.model.state.coords.current_coords));
+    let sim_obj_alt = distance_sim_obj - env.earth.model.get_solar_object().get_radius_meters();
 
     // return an empty result if sim object earth relative altitude is not within a range which
     // atmospheric drag will be relevant to simulation.
@@ -85,12 +86,12 @@ fn calculate_earth_gravity_perturbation(
     perturbations_out: &mut Option<&mut Vec<output::PerturbationOut>>,
 ) -> Array3d {
     // Calculate distance between the earth and the sim object using absolute coordinates
-    let distance_vector_sim_obj = sim_obj.coords_abs - env.earth.coords.current_coords;
+    let distance_vector_sim_obj = sim_obj.coords_abs - env.earth.model.state.coords.current_coords;
 
     // Calculate acceleration due to the earth at the location of the simulation object
     let mut gravity_accel = common::newton_gravitational_field(
         &distance_vector_sim_obj,
-        env.earth.get_solar_object().get_mass_kg(),
+        env.earth.model.get_solar_object().get_mass_kg(),
     );
 
     // If the simulation object is not in the solar SOI, the gravity field must be compensated
@@ -99,15 +100,16 @@ fn calculate_earth_gravity_perturbation(
         Solarobj::Sun { attr: _ } => gravity_accel,
         Solarobj::Earth { attr: _ } => bodies::common::ecliptic_to_equatorial(
             &gravity_accel,
-            env.earth.get_solar_object().get_obliquity(),
+            env.earth.model.get_solar_object().get_obliquity(),
         ),
         Solarobj::Moon { attr: _ } => bodies::common::ecliptic_to_equatorial(
             &(gravity_accel
                 - common::newton_gravitational_field(
-                    &(env.moon.coords.current_coords - env.earth.coords.current_coords),
-                    env.earth.get_solar_object().get_mass_kg(),
+                    &(env.moon.model.state.coords.current_coords
+                        - env.earth.model.state.coords.current_coords),
+                    env.earth.model.get_solar_object().get_mass_kg(),
                 )),
-            env.moon.get_solar_object().get_obliquity(),
+            env.moon.model.get_solar_object().get_obliquity(),
         ),
     };
 

@@ -1,4 +1,4 @@
-use super::solar_object::Solarobj;
+use super::solar_model::Solarobj;
 use crate::{output, types::Array3d};
 use serde::{Deserialize, Serialize};
 

@@ -2,7 +2,7 @@ use crate::{
     bodies::{
         self,
         sim_object::SimobjT,
-        solar_object::{KeplerModel, Solarobj},
+        solar_model::{KeplerModel, Solarobj},
     },
     environment::Environment,
     output,
@@ -16,12 +16,12 @@ fn calculate_solar_gravity_perturbation(
     perturbations_out: &mut Option<&mut Vec<output::PerturbationOut>>,
 ) -> Array3d {
     // Calculate distance between the sun and the sim object using absolute coordinates
-    let distance_vector_sim_obj = sim_obj.coords_abs - env.sun.coords.current_coords;
+    let distance_vector_sim_obj = sim_obj.coords_abs - env.sun.model.state.coords.current_coords;
 
     // Calculate acceleration due to the sun at the location of the simulation object
     let mut gravity_accel = common::newton_gravitational_field(
         &distance_vector_sim_obj,
-        env.sun.get_solar_object().get_mass_kg(),
+        env.sun.model.get_solar_object().get_mass_kg(),
     );
 
     // If the simulation object is not in the solar SOI, the gravity field must be compensated
@@ -31,18 +31,20 @@ fn calculate_solar_gravity_perturbation(
         Solarobj::Earth { attr: _ } => bodies::common::ecliptic_to_equatorial(
             &(gravity_accel
                 - common::newton_gravitational_field(
-                    &(env.earth.coords.current_coords - env.sun.coords.current_coords),
-                    env.sun.get_solar_object().get_mass_kg(),
+                    &(env.earth.model.state.coords.current_coords
+                        - env.sun.model.state.coords.current_coords),
+                    env.sun.model.get_solar_object().get_mass_kg(),
                 )),
-            env.earth.get_solar_object().get_obliquity(),
+            env.earth.model.get_solar_object().get_obliquity(),
         ),
         Solarobj::Moon { attr: _ } => bodies::common::ecliptic_to_equatorial(
             &(gravity_accel
                 - common::newton_gravitational_field(
-                    &(env.moon.coords.current_coords - env.sun.coords.current_coords),
-                    env.sun.get_solar_object().get_mass_kg(),
+                    &(env.moon.model.state.coords.current_coords
+                        - env.sun.model.state.coords.current_coords),
+                    env.sun.model.get_solar_object().get_mass_kg(),
                 )),
-            env.moon.get_solar_object().get_obliquity(),
+            env.moon.model.get_solar_object().get_obliquity(),
         ),
     };
 

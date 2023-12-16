@@ -62,12 +62,17 @@ impl Solarobj {
 }
 
 #[derive(Clone)]
-#[allow(dead_code)]
-pub struct PlanetPS {
-    // See  http://www.stjarnhimlen.se/comp/ppcomp.html#4
+pub struct ModelState {
     solartype: Solarobj, // Type enum of the solar obj
     pub coords: SolarobjCoords,
     pub velocity: Array3d,
+}
+
+#[derive(Clone)]
+#[allow(dead_code)]
+pub struct PlanetPSModel {
+    pub state: ModelState,
+    // See  http://www.stjarnhimlen.se/comp/ppcomp.html#4
     n0: f64,
     nc: f64, // N0 = longitude of the ascending node (deg).  Nc = rate of change in deg/day
     i0: f64,
@@ -87,18 +92,26 @@ pub struct PlanetPS {
 }
 
 #[derive(Clone)]
-pub struct Earth {
-    solartype: Solarobj,
-    pub coords: SolarobjCoords,
-    pub velocity: Array3d,
-    sw_indices: Vec<SwIndex>,
+pub struct EarthModel {
+    pub state: ModelState,
 }
 
 #[derive(Clone)]
+pub struct SunModel {
+    pub state: ModelState,
+}
+
 pub struct Sun {
-    solartype: Solarobj,
-    pub coords: SolarobjCoords,
-    pub velocity: Array3d,
+    pub model: SunModel,
+}
+
+pub struct Earth {
+    sw_indices: Vec<SwIndex>, // Space Weather Indices.
+    pub model: EarthModel,
+}
+
+pub struct Moon {
+    pub model: PlanetPSModel,
 }
 
 /// Provides utilities for calculating planetary bodies with a Kepler model.
@@ -108,7 +121,7 @@ mod kepler_utilities {
     use crate::types::Array3d;
     use std::f64::{self, consts};
 
-    use super::{PlanetPS, EARTH_RADII_PER_ASTRONOMICAL_UNIT};
+    use super::{PlanetPSModel, EARTH_RADII_PER_ASTRONOMICAL_UNIT};
 
     /// Calculate the eccentric anomaly for a given body.
     /// ### Arguments
@@ -164,7 +177,7 @@ mod kepler_utilities {
         )
     }
 
-    pub fn lunar_pertub(body: &PlanetPS, xh: f64, yh: f64, zh: f64, day: f64) -> Array3d {
+    pub fn lunar_pertub(body: &PlanetPSModel, xh: f64, yh: f64, zh: f64, day: f64) -> Array3d {
         let ms = mean_anomaly_of_sun(day); // mean anomaly of Sun
         let ws = sun_argument_of_perihelion(day); // Sun's argument of perihelion
         let ls = ms + ws; // mean longitude of Sun
@@ -284,7 +297,7 @@ impl SolarobjCoords {
     }
 }
 
-impl KeplerModel for PlanetPS {
+impl KeplerModel for PlanetPSModel {
     fn ecliptic_cartesian_coords(&self, day: f64) -> Array3d {
         // Default impl
         let a = self.a0 + (day * self.ac);
@@ -334,18 +347,18 @@ impl KeplerModel for PlanetPS {
     ///      Cartesian coords with the added perturbations.
     ///
     fn perturb(&self, x: f64, y: f64, z: f64, day: f64) -> Array3d {
-        match &self.solartype {
+        match &self.state.solartype {
             Solarobj::Moon { attr: _ } => kepler_utilities::lunar_pertub(self, x, y, z, day),
             _ => Array3d { x, y, z },
         }
     }
 
     fn get_solar_object(&self) -> &Solarobj {
-        &self.solartype
+        &self.state.solartype
     }
 }
 
-impl PlanetPS {
+impl PlanetPSModel {
     fn mean_anomaly(&self, day: f64) -> f64 {
         self.m0 + (day * self.mc)
     }
@@ -359,7 +372,7 @@ impl PlanetPS {
     }
 }
 
-impl KeplerModel for Earth {
+impl KeplerModel for EarthModel {
     /// Calculate the position of Earth relative to the Sun.
     /// Calls function earth_ecliptic_cartesian_coords in kepler_utilities
     ///
@@ -400,7 +413,41 @@ impl KeplerModel for Earth {
     }
 
     fn get_solar_object(&self) -> &Solarobj {
-        &self.solartype
+        &self.state.solartype
+    }
+}
+
+impl KeplerModel for SunModel {
+    fn ecliptic_cartesian_coords(&self, _day: f64) -> Array3d {
+        Array3d {
+            x: 0f64,
+            y: 0f64,
+            z: 0f64,
+        }
+    }
+
+    fn get_solar_object(&self) -> &Solarobj {
+        &self.state.solartype
+    }
+}
+
+pub fn make_sun() -> Sun {
+    let solar_trait = Solarobj::Sun {
+        attr: Some(SolarAttr {
+            radius: 6.95700e8,
+            mass: 1.9891e30,
+            obliquity: 0.0,
+        }),
+    };
+
+    Sun {
+        model: SunModel {
+            state: ModelState {
+                solartype: solar_trait,
+                coords: SolarobjCoords::default(),
+                velocity: Array3d::default(),
+            },
+        },
     }
 }
 
@@ -415,36 +462,6 @@ impl Earth {
 
         // no index match was made so just return the first index.
         self.sw_indices.get(0).unwrap()
-    }
-}
-
-impl KeplerModel for Sun {
-    fn ecliptic_cartesian_coords(&self, _day: f64) -> Array3d {
-        Array3d {
-            x: 0f64,
-            y: 0f64,
-            z: 0f64,
-        }
-    }
-
-    fn get_solar_object(&self) -> &Solarobj {
-        &self.solartype
-    }
-}
-
-pub fn make_sun() -> Sun {
-    let solar_trait = Solarobj::Sun {
-        attr: Some(SolarAttr {
-            radius: 6.95700e8,
-            mass: 1.9891e30,
-            obliquity: 0.0,
-        }),
-    };
-
-    Sun {
-        solartype: solar_trait,
-        coords: SolarobjCoords::default(),
-        velocity: Array3d::default(), // Zero until sim update
     }
 }
 
@@ -463,21 +480,25 @@ pub fn make_earth(day: f64, sw_indices: &Vec<SwIndex>) -> Earth {
         sw_indices_clone.push(SwIndex::default());
     }
     let mut earth_body = Earth {
-        solartype: solar_trait,
-        coords: SolarobjCoords::default(),
-        velocity: Array3d::default(), // Zero until sim update
+        model: EarthModel {
+            state: ModelState {
+                solartype: solar_trait,
+                coords: SolarobjCoords::default(),
+                velocity: Array3d::default(),
+            },
+        },
         sw_indices: sw_indices_clone,
     };
 
-    let initial_coords = earth_body.ecliptic_cartesian_coords(day);
-    earth_body.coords.ahead_coords = initial_coords;
-    earth_body.coords.current_coords = initial_coords;
-    earth_body.coords.behind_coords = initial_coords;
+    let initial_coords = earth_body.model.ecliptic_cartesian_coords(day);
+    earth_body.model.state.coords.ahead_coords = initial_coords;
+    earth_body.model.state.coords.current_coords = initial_coords;
+    earth_body.model.state.coords.behind_coords = initial_coords;
 
     earth_body
 }
 
-pub fn make_moon(day: f64, earth_coords: &Array3d) -> PlanetPS {
+pub fn make_moon(day: f64, earth_coords: &Array3d) -> Moon {
     let solar_trait = Solarobj::Moon {
         attr: Some(SolarAttr {
             radius: 1.7381e6,
@@ -486,33 +507,37 @@ pub fn make_moon(day: f64, earth_coords: &Array3d) -> PlanetPS {
         }),
     };
 
-    let mut moon_body = PlanetPS {
-        solartype: solar_trait,
-        coords: SolarobjCoords::default(),
-        velocity: Array3d::default(), // Zero until sim update
-        n0: 125.1228,
-        nc: -0.0529538083,
-        i0: 5.1454,
-        ic: 0.0,
-        w0: 318.0634,
-        wc: 0.1643573223,
-        a0: 60.2666 / EARTH_RADII_PER_ASTRONOMICAL_UNIT,
-        ac: 0.0,
-        e0: 0.054900,
-        ec: 0.0,
-        m0: 115.3654,
-        mc: 13.0649929509,
-        mag_base: 0.23,
-        mag_phase_factor: 0.026,
-        mag_nonlinear_factor: 4.0e-9,
-        mag_nonlinear_exponent: 4f64,
+    let mut moon_body = Moon {
+        model: PlanetPSModel {
+            n0: 125.1228,
+            nc: -0.0529538083,
+            i0: 5.1454,
+            ic: 0.0,
+            w0: 318.0634,
+            wc: 0.1643573223,
+            a0: 60.2666 / EARTH_RADII_PER_ASTRONOMICAL_UNIT,
+            ac: 0.0,
+            e0: 0.054900,
+            ec: 0.0,
+            m0: 115.3654,
+            mc: 13.0649929509,
+            mag_base: 0.23,
+            mag_phase_factor: 0.026,
+            mag_nonlinear_factor: 4.0e-9,
+            mag_nonlinear_exponent: 4f64,
+            state: ModelState {
+                solartype: solar_trait,
+                coords: SolarobjCoords::default(),
+                velocity: Array3d::default(), // Zero until sim update
+            },
+        },
     };
 
     // Calculate the location of the moon and convert to heliocentric coords
-    let initial_coords = moon_body.ecliptic_cartesian_coords(day) + earth_coords;
-    moon_body.coords.ahead_coords = initial_coords;
-    moon_body.coords.current_coords = initial_coords;
-    moon_body.coords.behind_coords = initial_coords;
+    let initial_coords = moon_body.model.ecliptic_cartesian_coords(day) + earth_coords;
+    moon_body.model.state.coords.ahead_coords = initial_coords;
+    moon_body.model.state.coords.current_coords = initial_coords;
+    moon_body.model.state.coords.behind_coords = initial_coords;
 
     moon_body
 }

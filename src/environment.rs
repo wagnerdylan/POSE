@@ -4,9 +4,7 @@ use crate::{
     bodies::{
         self,
         sim_object::SimobjT,
-        solar_object::{
-            make_earth, make_moon, make_sun, Earth, KeplerModel, PlanetPS, Solarobj, Sun,
-        },
+        solar_model::{make_earth, make_moon, make_sun, Earth, KeplerModel, Moon, Solarobj, Sun},
     },
     input::{EnvInitData, RuntimeParameters},
     output,
@@ -29,7 +27,7 @@ pub struct Environment {
     // All solar bodies below are synced to future time
     pub sun: Sun,
     pub earth: Earth,
-    pub moon: PlanetPS,
+    pub moon: Moon,
 }
 
 impl Environment {
@@ -42,11 +40,14 @@ impl Environment {
         let new_day = Self::datetime_to_days(up_day);
 
         // Update each solar body within simulation
-        self.sun.coords.ahead_coords = self.sun.ecliptic_cartesian_coords(new_day);
-        self.earth.coords.ahead_coords = self.earth.ecliptic_cartesian_coords(new_day);
+        self.sun.model.state.coords.ahead_coords =
+            self.sun.model.ecliptic_cartesian_coords(new_day);
+        self.earth.model.state.coords.ahead_coords =
+            self.earth.model.ecliptic_cartesian_coords(new_day);
         // Calculate new location for moon and convert to heliocentric coords
-        self.moon.coords.ahead_coords =
-            self.moon.ecliptic_cartesian_coords(new_day) + self.earth.coords.ahead_coords;
+        self.moon.model.state.coords.ahead_coords =
+            self.moon.model.ecliptic_cartesian_coords(new_day)
+                + self.earth.model.state.coords.ahead_coords;
     }
 
     /// Hard update on all solar objects within the simulation.
@@ -63,14 +64,14 @@ impl Environment {
         self.update_solar_objs(&new_time);
 
         // Set the corresponding last and current coords to ahead time as ahead time is now current
-        self.sun.coords.behind_coords = self.sun.coords.ahead_coords;
-        self.sun.coords.current_coords = self.sun.coords.ahead_coords;
+        self.sun.model.state.coords.behind_coords = self.sun.model.state.coords.ahead_coords;
+        self.sun.model.state.coords.current_coords = self.sun.model.state.coords.ahead_coords;
 
-        self.earth.coords.behind_coords = self.earth.coords.ahead_coords;
-        self.earth.coords.current_coords = self.earth.coords.ahead_coords;
+        self.earth.model.state.coords.behind_coords = self.earth.model.state.coords.ahead_coords;
+        self.earth.model.state.coords.current_coords = self.earth.model.state.coords.ahead_coords;
 
-        self.moon.coords.behind_coords = self.moon.coords.ahead_coords;
-        self.moon.coords.current_coords = self.moon.coords.ahead_coords;
+        self.moon.model.state.coords.behind_coords = self.moon.model.state.coords.ahead_coords;
+        self.moon.model.state.coords.current_coords = self.moon.model.state.coords.ahead_coords;
 
         self.future_day_update_s = self.sim_time_s + (runtime_params.sim_solar_step as f64);
 
@@ -78,18 +79,30 @@ impl Environment {
         let future_time = self.start_time + Duration::seconds(self.future_day_update_s as i64);
         self.update_solar_objs(&future_time);
 
-        self.sun.velocity = self
+        self.sun.model.state.velocity = self
             .sun
+            .model
+            .state
             .coords
             .calc_velocity_full_range(runtime_params.sim_solar_step as f64);
-        self.earth.velocity = self.earth.coords.calc_velocity_relative_full_range(
-            &self.sun.coords,
-            runtime_params.sim_solar_step as f64,
-        );
-        self.moon.velocity = self.moon.coords.calc_velocity_relative_full_range(
-            &self.earth.coords,
-            runtime_params.sim_solar_step as f64,
-        );
+        self.earth.model.state.velocity = self
+            .earth
+            .model
+            .state
+            .coords
+            .calc_velocity_relative_full_range(
+                &self.sun.model.state.coords,
+                runtime_params.sim_solar_step as f64,
+            );
+        self.moon.model.state.velocity = self
+            .moon
+            .model
+            .state
+            .coords
+            .calc_velocity_relative_full_range(
+                &self.earth.model.state.coords,
+                runtime_params.sim_solar_step as f64,
+            );
     }
 
     /// Advance the simulation by the simulation step time. This function will force a hard update on
@@ -114,28 +127,30 @@ impl Environment {
             / (self.future_day_update_s - self.last_day_update_s);
 
         // Linear interpolate for all solar objs within simulation
-        self.sun.coords.lerp_set(interp_point);
-        self.earth.coords.lerp_set(interp_point);
-        self.moon.coords.lerp_set(interp_point);
+        self.sun.model.state.coords.lerp_set(interp_point);
+        self.earth.model.state.coords.lerp_set(interp_point);
+        self.moon.model.state.coords.lerp_set(interp_point);
     }
 
     // Calculate solar ecliptic coordinates for a given simulation object from
     // the soi inertial reference frame.
     pub fn calculate_se_coords(&self, sim_obj: &SimobjT) -> Array3d {
         match sim_obj.soi {
-            Solarobj::Sun { attr: _, .. } => self.sun.coords.current_coords + sim_obj.coords,
+            Solarobj::Sun { attr: _, .. } => {
+                self.sun.model.state.coords.current_coords + sim_obj.coords
+            }
             Solarobj::Earth { attr: _, .. } => {
-                self.earth.coords.current_coords
+                self.earth.model.state.coords.current_coords
                     + bodies::common::equatorial_to_ecliptic(
                         &sim_obj.coords,
-                        self.earth.get_solar_object().get_obliquity(),
+                        self.earth.model.get_solar_object().get_obliquity(),
                     )
             }
             Solarobj::Moon { attr: _, .. } => {
-                self.moon.coords.current_coords
+                self.moon.model.state.coords.current_coords
                     + bodies::common::equatorial_to_ecliptic(
                         &sim_obj.coords,
-                        self.moon.get_solar_object().get_obliquity(),
+                        self.moon.model.get_solar_object().get_obliquity(),
                     )
             }
         }
@@ -161,7 +176,7 @@ impl Environment {
 
         let sun_precalc = make_sun();
         let earth_precalc = make_earth(day, &init_data.earth_sw);
-        let moon_precalc = make_moon(day, &earth_precalc.coords.current_coords);
+        let moon_precalc = make_moon(day, &earth_precalc.model.state.coords.current_coords);
 
         let mut env = Environment {
             last_day_update_s: 0f64,
@@ -186,14 +201,14 @@ impl Environment {
 
     fn check_is_within_earth_hill_sphere(&self, sim_obj: &mut SimobjT) -> bool {
         let distance_to_earth =
-            types::l2_norm(&(sim_obj.coords_abs - self.earth.coords.current_coords));
+            types::l2_norm(&(sim_obj.coords_abs - self.earth.model.state.coords.current_coords));
 
         distance_to_earth <= EARTH_HILL_SPHERE_RADIUS
     }
 
     fn check_is_within_lunar_hill_sphere(&self, sim_obj: &mut SimobjT) -> bool {
         let distance_to_moon =
-            types::l2_norm(&(sim_obj.coords_abs - self.moon.coords.current_coords));
+            types::l2_norm(&(sim_obj.coords_abs - self.moon.model.state.coords.current_coords));
 
         distance_to_moon <= LUNAR_HILL_SPHERE_RADIUS
     }
@@ -232,24 +247,26 @@ impl Environment {
                     Self::switch_in_soi(
                         sim_obj,
                         Solarobj::Earth { attr: None },
-                        &self.earth.coords.current_coords,
-                        &self.earth.velocity,
+                        &self.earth.model.state.coords.current_coords,
+                        &self.earth.model.state.velocity,
                     );
                     // Recursive call to handle bodies within switched soi
                     self.check_switch_soi(sim_obj);
                 }
             }
             Solarobj::Earth { attr: _ } => {
-                let sim_distance_to_earth =
-                    types::l2_norm(&(sim_obj.coords_abs - self.earth.coords.current_coords));
+                let sim_distance_to_earth = types::l2_norm(
+                    &(sim_obj.coords_abs - self.earth.model.state.coords.current_coords),
+                );
 
                 // If the simulation object is outside of the earth hill sphere set the soi to solar
                 if sim_distance_to_earth > EARTH_HILL_SPHERE_RADIUS {
                     Self::switch_out_soi(
                         sim_obj,
                         Solarobj::Sun { attr: None },
-                        &(self.earth.coords.current_coords - self.sun.coords.current_coords),
-                        &self.earth.velocity,
+                        &(self.earth.model.state.coords.current_coords
+                            - self.sun.model.state.coords.current_coords),
+                        &self.earth.model.state.velocity,
                     );
                     // Recursive call to handle bodies within switched soi, used for overshoots/teleportation
                     self.check_switch_soi(sim_obj);
@@ -257,22 +274,24 @@ impl Environment {
                     Self::switch_in_soi(
                         sim_obj,
                         Solarobj::Moon { attr: None },
-                        &self.moon.coords.current_coords,
-                        &self.moon.velocity,
+                        &self.moon.model.state.coords.current_coords,
+                        &self.moon.model.state.velocity,
                     )
                 }
             }
             Solarobj::Moon { attr: _ } => {
-                let sim_distance_to_moon =
-                    types::l2_norm(&(sim_obj.coords_abs - self.moon.coords.current_coords));
+                let sim_distance_to_moon = types::l2_norm(
+                    &(sim_obj.coords_abs - self.moon.model.state.coords.current_coords),
+                );
 
                 // If the simulation object is outside the lunar hill sphere set the soi to earth
                 if sim_distance_to_moon > LUNAR_HILL_SPHERE_RADIUS {
                     Self::switch_out_soi(
                         sim_obj,
                         Solarobj::Earth { attr: None },
-                        &(self.moon.coords.current_coords - self.earth.coords.current_coords),
-                        &self.moon.velocity,
+                        &(self.moon.model.state.coords.current_coords
+                            - self.earth.model.state.coords.current_coords),
+                        &self.moon.model.state.velocity,
                     );
                     // Recursive call to handle bodies within switched soi, used for overshoots/teleportation
                     self.check_switch_soi(sim_obj);
@@ -289,14 +308,14 @@ impl Environment {
     ///
     pub fn sun_to_output_form(&self) -> output::SolarObjectOut {
         output::SolarObjectOut {
-            name: self.sun.get_solar_object().to_string(),
+            name: self.sun.model.get_solar_object().to_string(),
             sim_time: self.sim_time_s,
-            x_coord: self.sun.coords.current_coords.x as f32,
-            y_coord: self.sun.coords.current_coords.y as f32,
-            z_coord: self.sun.coords.current_coords.z as f32,
-            x_velocity: self.sun.velocity.x,
-            y_velocity: self.sun.velocity.y,
-            z_velocity: self.sun.velocity.z,
+            x_coord: self.sun.model.state.coords.current_coords.x as f32,
+            y_coord: self.sun.model.state.coords.current_coords.y as f32,
+            z_coord: self.sun.model.state.coords.current_coords.z as f32,
+            x_velocity: self.sun.model.state.velocity.x,
+            y_velocity: self.sun.model.state.velocity.y,
+            z_velocity: self.sun.model.state.velocity.z,
         }
     }
 
@@ -307,14 +326,14 @@ impl Environment {
     ///
     pub fn earth_to_output_form(&self) -> output::SolarObjectOut {
         output::SolarObjectOut {
-            name: self.earth.get_solar_object().to_string(),
+            name: self.earth.model.get_solar_object().to_string(),
             sim_time: self.sim_time_s,
-            x_coord: self.earth.coords.current_coords.x as f32,
-            y_coord: self.earth.coords.current_coords.y as f32,
-            z_coord: self.earth.coords.current_coords.z as f32,
-            x_velocity: self.earth.velocity.x,
-            y_velocity: self.earth.velocity.y,
-            z_velocity: self.earth.velocity.z,
+            x_coord: self.earth.model.state.coords.current_coords.x as f32,
+            y_coord: self.earth.model.state.coords.current_coords.y as f32,
+            z_coord: self.earth.model.state.coords.current_coords.z as f32,
+            x_velocity: self.earth.model.state.velocity.x,
+            y_velocity: self.earth.model.state.velocity.y,
+            z_velocity: self.earth.model.state.velocity.z,
         }
     }
 
@@ -325,14 +344,14 @@ impl Environment {
     ///
     pub fn moon_to_output_form(&self) -> output::SolarObjectOut {
         output::SolarObjectOut {
-            name: self.moon.get_solar_object().to_string(),
+            name: self.moon.model.get_solar_object().to_string(),
             sim_time: self.sim_time_s,
-            x_coord: self.moon.coords.current_coords.x as f32,
-            y_coord: self.moon.coords.current_coords.y as f32,
-            z_coord: self.moon.coords.current_coords.z as f32,
-            x_velocity: self.moon.velocity.x,
-            y_velocity: self.moon.velocity.y,
-            z_velocity: self.moon.velocity.z,
+            x_coord: self.moon.model.state.coords.current_coords.x as f32,
+            y_coord: self.moon.model.state.coords.current_coords.y as f32,
+            z_coord: self.moon.model.state.coords.current_coords.z as f32,
+            x_velocity: self.moon.model.state.velocity.x,
+            y_velocity: self.moon.model.state.velocity.y,
+            z_velocity: self.moon.model.state.velocity.z,
         }
     }
 }
