@@ -136,21 +136,19 @@ impl Environment {
     // the soi inertial reference frame.
     pub fn calculate_se_coords(&self, sim_obj: &SimobjT) -> Array3d {
         match sim_obj.soi {
-            Solarobj::Sun { attr: _, .. } => {
-                self.sun.model.state.coords.current_coords + sim_obj.coords
-            }
-            Solarobj::Earth { attr: _, .. } => {
+            Solarobj::Sun => self.sun.model.state.coords.current_coords + sim_obj.coords,
+            Solarobj::Earth => {
                 self.earth.model.state.coords.current_coords
                     + bodies::common::equatorial_to_ecliptic(
                         &sim_obj.coords,
-                        self.earth.model.get_solar_object().get_obliquity(),
+                        self.earth.attr.obliquity,
                     )
             }
-            Solarobj::Moon { attr: _, .. } => {
+            Solarobj::Moon => {
                 self.moon.model.state.coords.current_coords
                     + bodies::common::equatorial_to_ecliptic(
                         &sim_obj.coords,
-                        self.moon.model.get_solar_object().get_obliquity(),
+                        self.moon.attr.obliquity,
                     )
             }
         }
@@ -242,11 +240,11 @@ impl Environment {
     ///
     pub fn check_switch_soi(&self, sim_obj: &mut SimobjT) {
         match sim_obj.soi {
-            Solarobj::Sun { attr: _ } => {
+            Solarobj::Sun => {
                 if self.check_is_within_earth_hill_sphere(sim_obj) {
                     Self::switch_in_soi(
                         sim_obj,
-                        Solarobj::Earth { attr: None },
+                        Solarobj::Earth,
                         &self.earth.model.state.coords.current_coords,
                         &self.earth.model.state.velocity,
                     );
@@ -254,7 +252,7 @@ impl Environment {
                     self.check_switch_soi(sim_obj);
                 }
             }
-            Solarobj::Earth { attr: _ } => {
+            Solarobj::Earth => {
                 let sim_distance_to_earth = types::l2_norm(
                     &(sim_obj.coords_abs - self.earth.model.state.coords.current_coords),
                 );
@@ -263,7 +261,7 @@ impl Environment {
                 if sim_distance_to_earth > EARTH_HILL_SPHERE_RADIUS {
                     Self::switch_out_soi(
                         sim_obj,
-                        Solarobj::Sun { attr: None },
+                        Solarobj::Sun,
                         &(self.earth.model.state.coords.current_coords
                             - self.sun.model.state.coords.current_coords),
                         &self.earth.model.state.velocity,
@@ -273,13 +271,13 @@ impl Environment {
                 } else if self.check_is_within_lunar_hill_sphere(sim_obj) {
                     Self::switch_in_soi(
                         sim_obj,
-                        Solarobj::Moon { attr: None },
+                        Solarobj::Moon,
                         &self.moon.model.state.coords.current_coords,
                         &self.moon.model.state.velocity,
                     )
                 }
             }
-            Solarobj::Moon { attr: _ } => {
+            Solarobj::Moon => {
                 let sim_distance_to_moon = types::l2_norm(
                     &(sim_obj.coords_abs - self.moon.model.state.coords.current_coords),
                 );
@@ -288,7 +286,7 @@ impl Environment {
                 if sim_distance_to_moon > LUNAR_HILL_SPHERE_RADIUS {
                     Self::switch_out_soi(
                         sim_obj,
-                        Solarobj::Earth { attr: None },
+                        Solarobj::Earth,
                         &(self.moon.model.state.coords.current_coords
                             - self.earth.model.state.coords.current_coords),
                         &self.moon.model.state.velocity,
@@ -308,7 +306,7 @@ impl Environment {
     ///
     pub fn sun_to_output_form(&self) -> output::SolarObjectOut {
         output::SolarObjectOut {
-            name: self.sun.model.get_solar_object().to_string(),
+            name: Solarobj::Sun.to_string(),
             sim_time: self.sim_time_s,
             x_coord: self.sun.model.state.coords.current_coords.x as f32,
             y_coord: self.sun.model.state.coords.current_coords.y as f32,
@@ -326,7 +324,7 @@ impl Environment {
     ///
     pub fn earth_to_output_form(&self) -> output::SolarObjectOut {
         output::SolarObjectOut {
-            name: self.earth.model.get_solar_object().to_string(),
+            name: Solarobj::Earth.to_string(),
             sim_time: self.sim_time_s,
             x_coord: self.earth.model.state.coords.current_coords.x as f32,
             y_coord: self.earth.model.state.coords.current_coords.y as f32,
@@ -344,7 +342,7 @@ impl Environment {
     ///
     pub fn moon_to_output_form(&self) -> output::SolarObjectOut {
         output::SolarObjectOut {
-            name: self.moon.model.get_solar_object().to_string(),
+            name: Solarobj::Moon.to_string(),
             sim_time: self.sim_time_s,
             x_coord: self.moon.model.state.coords.current_coords.x as f32,
             y_coord: self.moon.model.state.coords.current_coords.y as f32,

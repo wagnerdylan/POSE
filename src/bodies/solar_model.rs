@@ -15,55 +15,22 @@ const AU_METER: f64 = 1.496e+11;
 #[serde(tag = "type")]
 pub enum Solarobj {
     #[strum(serialize = "sun")]
-    Sun { attr: Option<SolarAttr> },
+    Sun,
     #[strum(serialize = "earth")]
-    Earth { attr: Option<SolarAttr> },
+    Earth,
     #[strum(serialize = "moon")]
-    Moon { attr: Option<SolarAttr> },
+    Moon,
 }
 
 #[derive(Clone, Deserialize, Serialize)]
 pub struct SolarAttr {
-    radius: f64,    // meters
-    mass: f64,      // kg
-    obliquity: f64, // degrees relative to the ecliptic
-}
-
-impl Solarobj {
-    pub fn get_mass_kg(&self) -> f64 {
-        const ERROR_MSG: &str = "Enum has some field for attr";
-
-        match self {
-            Solarobj::Sun { attr } => attr.as_ref().expect(ERROR_MSG).mass,
-            Solarobj::Earth { attr } => attr.as_ref().expect(ERROR_MSG).mass,
-            Solarobj::Moon { attr } => attr.as_ref().expect(ERROR_MSG).mass,
-        }
-    }
-
-    pub fn get_radius_meters(&self) -> f64 {
-        const ERROR_MSG: &str = "Enum has some field for attr";
-
-        match self {
-            Solarobj::Sun { attr } => attr.as_ref().expect(ERROR_MSG).radius,
-            Solarobj::Earth { attr } => attr.as_ref().expect(ERROR_MSG).radius,
-            Solarobj::Moon { attr } => attr.as_ref().expect(ERROR_MSG).radius,
-        }
-    }
-
-    pub fn get_obliquity(&self) -> f64 {
-        const ERROR_MSG: &str = "Enum has some field for attr";
-
-        match self {
-            Solarobj::Sun { attr } => attr.as_ref().expect(ERROR_MSG).obliquity,
-            Solarobj::Earth { attr } => attr.as_ref().expect(ERROR_MSG).obliquity,
-            Solarobj::Moon { attr } => attr.as_ref().expect(ERROR_MSG).obliquity,
-        }
-    }
+    pub radius: f64,    // meters
+    pub mass: f64,      // kg
+    pub obliquity: f64, // degrees relative to the ecliptic
 }
 
 #[derive(Clone)]
 pub struct ModelState {
-    solartype: Solarobj, // Type enum of the solar obj
     pub coords: SolarobjCoords,
     pub velocity: Array3d,
 }
@@ -72,6 +39,7 @@ pub struct ModelState {
 #[allow(dead_code)]
 pub struct PlanetPSModel {
     pub state: ModelState,
+    solartype: Solarobj,
     // See  http://www.stjarnhimlen.se/comp/ppcomp.html#4
     n0: f64,
     nc: f64, // N0 = longitude of the ascending node (deg).  Nc = rate of change in deg/day
@@ -103,15 +71,18 @@ pub struct SunModel {
 
 pub struct Sun {
     pub model: SunModel,
+    pub attr: SolarAttr,
 }
 
 pub struct Earth {
     sw_indices: Vec<SwIndex>, // Space Weather Indices.
     pub model: EarthModel,
+    pub attr: SolarAttr,
 }
 
 pub struct Moon {
     pub model: PlanetPSModel,
+    pub attr: SolarAttr,
 }
 
 /// Provides utilities for calculating planetary bodies with a Kepler model.
@@ -242,9 +213,8 @@ pub trait KeplerModel {
     fn perturb(&self, x: f64, y: f64, z: f64, _day: f64) -> Array3d {
         Array3d { x, y, z }
     }
-
-    fn get_solar_object(&self) -> &Solarobj;
 }
+
 #[derive(Clone, Copy, Default)]
 pub struct SolarobjCoords {
     pub ahead_coords: Array3d,
@@ -347,14 +317,10 @@ impl KeplerModel for PlanetPSModel {
     ///      Cartesian coords with the added perturbations.
     ///
     fn perturb(&self, x: f64, y: f64, z: f64, day: f64) -> Array3d {
-        match &self.state.solartype {
-            Solarobj::Moon { attr: _ } => kepler_utilities::lunar_pertub(self, x, y, z, day),
+        match &self.solartype {
+            Solarobj::Moon => kepler_utilities::lunar_pertub(self, x, y, z, day),
             _ => Array3d { x, y, z },
         }
-    }
-
-    fn get_solar_object(&self) -> &Solarobj {
-        &self.state.solartype
     }
 }
 
@@ -411,10 +377,6 @@ impl KeplerModel for EarthModel {
         // the Earth's center is always on the plane of the ecliptic (z=0), by definition!
         Array3d { x, y, z: 0f64 }
     }
-
-    fn get_solar_object(&self) -> &Solarobj {
-        &self.state.solartype
-    }
 }
 
 impl KeplerModel for SunModel {
@@ -425,28 +387,20 @@ impl KeplerModel for SunModel {
             z: 0f64,
         }
     }
-
-    fn get_solar_object(&self) -> &Solarobj {
-        &self.state.solartype
-    }
 }
 
 pub fn make_sun() -> Sun {
-    let solar_trait = Solarobj::Sun {
-        attr: Some(SolarAttr {
-            radius: 6.95700e8,
-            mass: 1.9891e30,
-            obliquity: 0.0,
-        }),
-    };
-
     Sun {
         model: SunModel {
             state: ModelState {
-                solartype: solar_trait,
                 coords: SolarobjCoords::default(),
                 velocity: Array3d::default(),
             },
+        },
+        attr: SolarAttr {
+            radius: 6.95700e8,
+            mass: 1.9891e30,
+            obliquity: 0.0,
         },
     }
 }
@@ -498,14 +452,6 @@ impl Earth {
 }
 
 pub fn make_earth(day: f64, sw_indices: &Vec<SwIndex>) -> Earth {
-    let solar_trait = Solarobj::Earth {
-        attr: Some(SolarAttr {
-            radius: 6371000.0,
-            mass: 5.9722e24,
-            obliquity: 23.44,
-        }),
-    };
-
     // Ensure at least one element is always included into the earth space weather indices list.
     let mut sw_indices_clone = sw_indices.clone();
     if sw_indices_clone.is_empty() {
@@ -514,12 +460,16 @@ pub fn make_earth(day: f64, sw_indices: &Vec<SwIndex>) -> Earth {
     let mut earth_body = Earth {
         model: EarthModel {
             state: ModelState {
-                solartype: solar_trait,
                 coords: SolarobjCoords::default(),
                 velocity: Array3d::default(),
             },
         },
         sw_indices: sw_indices_clone,
+        attr: SolarAttr {
+            radius: 6371000.0,
+            mass: 5.9722e24,
+            obliquity: 23.44,
+        },
     };
 
     let initial_coords = earth_body.model.ecliptic_cartesian_coords(day);
@@ -531,14 +481,6 @@ pub fn make_earth(day: f64, sw_indices: &Vec<SwIndex>) -> Earth {
 }
 
 pub fn make_moon(day: f64, earth_coords: &Array3d) -> Moon {
-    let solar_trait = Solarobj::Moon {
-        attr: Some(SolarAttr {
-            radius: 1.7381e6,
-            mass: 7.3459e22,
-            obliquity: 1.5424,
-        }),
-    };
-
     let mut moon_body = Moon {
         model: PlanetPSModel {
             n0: 125.1228,
@@ -558,10 +500,15 @@ pub fn make_moon(day: f64, earth_coords: &Array3d) -> Moon {
             mag_nonlinear_factor: 4.0e-9,
             mag_nonlinear_exponent: 4f64,
             state: ModelState {
-                solartype: solar_trait,
                 coords: SolarobjCoords::default(),
                 velocity: Array3d::default(), // Zero until sim update
             },
+            solartype: Solarobj::Moon,
+        },
+        attr: SolarAttr {
+            radius: 1.7381e6,
+            mass: 7.3459e22,
+            obliquity: 1.5424,
         },
     };
 
