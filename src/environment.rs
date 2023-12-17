@@ -20,10 +20,11 @@ const EARTH_HILL_SPHERE_RADIUS: f64 = 0.01001 * AU_METER;
 const LUNAR_HILL_SPHERE_RADIUS: f64 = 58050000.0;
 
 pub struct Environment {
-    last_day_update_s: f64,
-    sim_time_s: f64, // Simulation time in seconds
-    future_day_update_s: f64,
-    pub start_time: chrono::DateTime<Utc>,
+    pub start_time: chrono::DateTime<Utc>, // Start time of the simulation as a constant.
+    sim_time_s: f64,                       // Simulation time in seconds.
+    pub current_time: chrono::DateTime<Utc>, // Current time of simulation in UTC.
+    last_day_update_s: f64,                // Last time a hard simulation model update was done.
+    future_day_update_s: f64, // Next time a hard simulation model update should be done.
     // All solar bodies below are synced to future time
     pub sun: Sun,
     pub earth: Earth,
@@ -51,17 +52,16 @@ impl Environment {
     }
 
     /// Hard update on all solar objects within the simulation.
+    /// Simulation time fields within environment should be set accordingly
+    /// before this method is called.
     ///
     /// ### Argument
-    /// 'sim_params" - Simulation parameters gathered at invocation time
+    /// 'runtime_params" - Simulation parameters gathered at invocation time
     ///
     fn update(&mut self, runtime_params: &RuntimeParameters) {
         self.last_day_update_s = self.sim_time_s;
 
-        // Calculate positions at current time (positions at future time, TODO optimize)
-        let new_time =
-            self.start_time + Duration::milliseconds((self.get_sim_time() * 1000.0) as i64);
-        self.update_solar_objs(&new_time);
+        self.update_solar_objs(&self.current_time.into());
 
         // Set the corresponding last and current coords to ahead time as ahead time is now current
         self.sun.model.state.coords.behind_coords = self.sun.model.state.coords.ahead_coords;
@@ -110,11 +110,13 @@ impl Environment {
     /// simulation time. In between hard environment updates, positions of all solar objects are linearly interpolated.
     ///
     /// ### Argument
-    /// 'sim_params" - Simulation parameters gathered at invocation time
+    /// 'runtime_params" - Simulation parameters gathered at invocation time
     ///
     pub fn advance_simulation_environment(&mut self, runtime_params: &RuntimeParameters) {
         // Advance the simulation environment by configured simulation time step
         self.sim_time_s += runtime_params.sim_time_step as f64;
+        self.current_time =
+            self.start_time + Duration::milliseconds((self.sim_time_s * 1000.0) as i64);
         // Perform a hard update if advanced current simulation time would exceed future simulation time
         if self.sim_time_s >= self.future_day_update_s {
             self.update(runtime_params);
@@ -177,10 +179,11 @@ impl Environment {
         let moon_precalc = make_moon(day, &earth_precalc.model.state.coords.current_coords);
 
         let mut env = Environment {
-            last_day_update_s: 0f64,
-            sim_time_s: 0f64,
-            future_day_update_s: runtime_params.sim_solar_step as f64,
             start_time: runtime_params.date,
+            sim_time_s: 0f64,
+            current_time: runtime_params.date,
+            last_day_update_s: 0f64,
+            future_day_update_s: runtime_params.sim_solar_step as f64,
             sun: sun_precalc,
             earth: earth_precalc,
             moon: moon_precalc,

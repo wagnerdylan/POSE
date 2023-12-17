@@ -24,7 +24,7 @@ pub enum Solarobj {
 
 #[derive(Clone, Deserialize, Serialize)]
 pub struct SolarAttr {
-    pub radius: f64,    // meters
+    pub eqradius: f64,  // meters
     pub mass: f64,      // kg
     pub obliquity: f64, // degrees relative to the ecliptic
 }
@@ -398,7 +398,7 @@ pub fn make_sun() -> Sun {
             },
         },
         attr: &SolarAttr {
-            radius: 6.95700e8,
+            eqradius: 6.95700e8,
             mass: 1.9891e30,
             obliquity: 0.0,
         },
@@ -491,7 +491,7 @@ pub fn make_earth(day: f64, sw_indices: &Vec<SwIndex>) -> Earth {
         },
         sw_indices: sw_indices_clone,
         attr: &SolarAttr {
-            radius: 6371000.0,
+            eqradius: 6378137.0,
             mass: 5.9722e24,
             obliquity: 23.44,
         },
@@ -531,7 +531,7 @@ pub fn make_moon(day: f64, earth_coords: &Array3d) -> Moon {
             solartype: Solarobj::Moon,
         },
         attr: &SolarAttr {
-            radius: 1.7381e6,
+            eqradius: 1.7381e6,
             mass: 7.3459e22,
             obliquity: 1.5424,
         },

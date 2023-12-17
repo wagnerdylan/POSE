@@ -4,7 +4,6 @@ use crate::{
     output,
     types::{l2_norm, Array3d},
 };
-use chrono::Duration;
 use perturb::common;
 
 fn calculate_earth_atmospheric_drag_perturbation(
@@ -14,7 +13,7 @@ fn calculate_earth_atmospheric_drag_perturbation(
 ) -> Array3d {
     let distance_sim_obj =
         l2_norm(&(sim_obj.coords_abs - env.earth.model.state.coords.current_coords));
-    let sim_obj_alt = distance_sim_obj - env.earth.attr.radius;
+    let sim_obj_alt = distance_sim_obj - env.earth.attr.eqradius;
 
     // return an empty result if sim object earth relative altitude is not within a range which
     // atmospheric drag will be relevant to simulation.
@@ -22,9 +21,7 @@ fn calculate_earth_atmospheric_drag_perturbation(
         return Array3d::default();
     }
 
-    let current_datetime =
-        env.start_time + Duration::milliseconds((env.get_sim_time() * 1000.0) as i64);
-    let atmos_model_result = env.earth.nrlmsise00_model(current_datetime, sim_obj_alt);
+    let atmos_model_result = env.earth.nrlmsise00_model(env.current_time, sim_obj_alt);
     let norm_velocity = l2_norm(&sim_obj.velocity);
     let drag_force = 0.5
         * sim_obj.drag_coeff
