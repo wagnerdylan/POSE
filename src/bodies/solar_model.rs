@@ -456,8 +456,6 @@ impl Earth {
         let sw_index = self.get_space_weather_index(current_datetime);
         let (lat, long, alt) = self.eci2geo(sim_obj_eci_coord, jdconv(&current_datetime));
 
-        println!("lat: {}, lon: {}, alt: {}", lat, long, alt);
-
         let mut input = nrlmsise00c::NRLMSISEInput {
             year: current_datetime.year(),
             doy: current_datetime.ordinal() as i32,
