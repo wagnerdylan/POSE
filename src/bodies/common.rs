@@ -1,3 +1,5 @@
+use chrono::{DateTime, Datelike, Timelike, Utc};
+
 use crate::types::Array3d;
 
 pub fn equatorial_to_ecliptic(x: &Array3d, obliquity: f64) -> Array3d {
@@ -45,5 +47,45 @@ pub fn ecliptic_to_equatorial(x: &Array3d, obliquity: f64) -> Array3d {
         x: x.dot(&r1),
         y: x.dot(&r2),
         z: x.dot(&r3),
+    }
+}
+
+/// Convert UTC datetime objects into julian days.
+/// Ref: https://idlastro.gsfc.nasa.gov/ftp/pro/astro/jdcnv.pro
+#[inline]
+pub fn jdconv(date: &DateTime<Utc>) -> f64 {
+    let l: i32 = (date.month() as i32 - 14) / 12;
+    let julian = date.day() as i32 - 32075
+        + 1461 * (date.year() + 4800 + l) / 4
+        + 367 * (date.month() as i32 - 2 - l * 12) / 12
+        - 3 * ((date.year() + 4900 + l) / 100) / 4;
+
+    julian as f64 + (date.hour() as f64 / 24.0) - 0.5
+}
+
+/// Calculate days since j2000 using a UTC datetime object.
+#[inline]
+pub fn days_since_j2000(date: &DateTime<Utc>) -> f64 {
+    const JD2000: f64 = 2451545.0;
+
+    jdconv(date) - JD2000
+}
+
+#[cfg(test)]
+mod tests {
+    use chrono::TimeZone;
+
+    use super::*;
+
+    #[test]
+    fn test_jdconv() {
+        let jd_conversion = jdconv(&chrono::Utc.with_ymd_and_hms(1978, 1, 1, 0, 0, 0).unwrap());
+        assert_eq!(jd_conversion, 2443509.5);
+    }
+
+    #[test]
+    fn test_days_since_j2000() {
+        let days = days_since_j2000(&chrono::Utc.with_ymd_and_hms(2000, 1, 1, 12, 0, 0).unwrap());
+        assert_eq!(0.0, days);
     }
 }

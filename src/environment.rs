@@ -1,8 +1,9 @@
-use chrono::{DateTime, Duration, TimeZone, Utc};
+use chrono::{DateTime, Duration, Utc};
 
 use crate::{
     bodies::{
         self,
+        common::days_since_j2000,
         sim_object::SimobjT,
         solar_model::{make_earth, make_moon, make_sun, Earth, KeplerModel, Moon, Solarobj, Sun},
     },
@@ -38,7 +39,7 @@ impl Environment {
     /// * 'up_day' - New datetime of simulation.
     ///
     fn update_solar_objs(&mut self, up_day: &DateTime<chrono::Utc>) {
-        let new_day = Self::datetime_to_days(up_day);
+        let new_day = days_since_j2000(up_day);
 
         // Update each solar body within simulation
         self.sun.model.state.coords.ahead_coords =
@@ -156,23 +157,8 @@ impl Environment {
         }
     }
 
-    /// Calculates a delta for provided datetime from 0/Jan/2000 00:00 UTC
-    ///
-    /// ### Argument
-    /// * 'datetime' - User provided datetime object.
-    ///
-    /// ### Return
-    ///     The delta from J2000.0
-    ///
-    fn datetime_to_days(datetime_obj: &DateTime<chrono::Utc>) -> f64 {
-        let origin_dt = chrono::Utc.with_ymd_and_hms(2000, 1, 1, 0, 0, 0).unwrap();
-
-        // Calculate delta with result expressed in seconds, convert to days.
-        (*datetime_obj - origin_dt).num_seconds() as f64 / 86400f64
-    }
-
     pub fn new(runtime_params: &RuntimeParameters, init_data: EnvInitData) -> Environment {
-        let day = Environment::datetime_to_days(&runtime_params.date);
+        let day = days_since_j2000(&runtime_params.date);
 
         let sun_precalc = make_sun();
         let earth_precalc = make_earth(day, &init_data.earth_sw);
