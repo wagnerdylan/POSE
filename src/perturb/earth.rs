@@ -21,7 +21,9 @@ fn calculate_earth_atmospheric_drag_perturbation(
         return Array3d::default();
     }
 
-    let atmos_model_result = env.earth.nrlmsise00_model(env.current_time, sim_obj_alt);
+    let atmos_model_result = env
+        .earth
+        .nrlmsise00_model(env.current_time, &sim_obj.coords);
     let norm_velocity = l2_norm(&sim_obj.velocity);
     let drag_force = 0.5
         * sim_obj.drag_coeff

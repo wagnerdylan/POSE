@@ -71,6 +71,22 @@ pub fn days_since_j2000(date: &DateTime<Utc>) -> f64 {
     jdconv(date) - JD2000
 }
 
+/// Convert civil time into local mean sidereal time.
+/// Ref: https://idlastro.gsfc.nasa.gov/ftp/pro/astro/ct2lst.pro
+#[inline]
+pub fn ct2lst(long_deg: f64, julian_day: f64) -> f64 {
+    const C0: f64 = 280.46061837;
+    const C1: f64 = 360.98564736629;
+    const C2: f64 = 0.000387933;
+    const C3: f64 = 38710000.0;
+    const JULIAN_CENTURY: f64 = 36525.0;
+
+    let t = julian_day / JULIAN_CENTURY;
+    let theta = C0 + (C1 * julian_day) + t * t * (C2 - t / C3);
+
+    ((theta + long_deg) / 15.0).rem_euclid(24.0)
+}
+
 #[cfg(test)]
 mod tests {
     use chrono::TimeZone;
@@ -87,5 +103,19 @@ mod tests {
     fn test_days_since_j2000() {
         let days = days_since_j2000(&chrono::Utc.with_ymd_and_hms(2000, 1, 1, 12, 0, 0).unwrap());
         assert_eq!(0.0, days);
+    }
+
+    #[test]
+    fn test_ct2lst() {
+        let lst = ct2lst(
+            -76.72,
+            days_since_j2000(
+                &chrono::Utc
+                    .with_ymd_and_hms(2008, 7, 30, 20, 53, 00)
+                    .unwrap(),
+            ),
+        );
+
+        assert!(11.356505 < lst && lst < 11.556505);
     }
 }

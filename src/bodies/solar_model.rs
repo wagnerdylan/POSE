@@ -1,9 +1,13 @@
+use std::f64::consts::PI;
+
 use chrono::{DateTime, Datelike, Timelike, Utc};
 use serde::{Deserialize, Serialize};
 use strum_macros::Display;
 use types::Array3d;
 
 use crate::input::SwIndex;
+
+use super::common::{ct2lst, jdconv};
 
 const METERS_PER_ASTRONOMICAL_UNIT: f64 = 1.4959787e+11;
 const METERS_PER_EARTH_EQUATORIAL_RADIUS: f64 = 6378140.0;
@@ -438,7 +442,7 @@ impl Earth {
     ///
     ///  ### Arguments
     /// * 'current_datetime' - UTC Datetime of to use within the model call.
-    /// * 'sim_obj_alt_meters' - Altitude of the query point above Earth.
+    /// * 'sim_obj_eci_coord' - ECI sim object coordinates in meters.
     ///
     /// ### Return
     ///     Output object containing data generated from the nrlmsise00 model.
@@ -446,21 +450,22 @@ impl Earth {
     pub fn nrlmsise00_model(
         &self,
         current_datetime: DateTime<Utc>,
-        sim_obj_alt_meters: f64,
+        sim_obj_eci_coord: &Array3d,
     ) -> nrlmsise00c::NRLMSISEOutput {
         let seconds_from_midnight = current_datetime.num_seconds_from_midnight() as f64;
         let sw_index = self.get_space_weather_index(current_datetime);
+        let (lat, long, alt) = self.eci2geo(sim_obj_eci_coord, jdconv(&current_datetime));
+
+        println!("lat: {}, lon: {}, alt: {}", lat, long, alt);
 
         let mut input = nrlmsise00c::NRLMSISEInput {
             year: current_datetime.year(),
             doy: current_datetime.ordinal() as i32,
             sec: seconds_from_midnight,
-            alt: sim_obj_alt_meters / 1000.0,
-            // Use location of prime meridian as static point.
-            // This may be enhanced by converting sim obj from ECI to ECEF.
-            g_lat: 0.0,
-            g_long: 0.0,
-            lst: seconds_from_midnight / 3600.0 + 0.0 / 15.0, // (lst=sec/3600 + g_long/15)
+            alt,
+            g_lat: lat,
+            g_long: long,
+            lst: seconds_from_midnight / 3600.0 + long / 15.0, // (lst=sec/3600 + g_long/15)
             f107A: sw_index.4,
             f107: sw_index.3,
             ap: sw_index.2,
@@ -473,6 +478,22 @@ impl Earth {
         };
 
         nrlmsise00c::gtd7_safe(&mut input, &flags)
+    }
+
+    pub fn eci2geo(&self, eci_coord: &Array3d, julian_day: f64) -> (f64, f64, f64) {
+        let eci_coord_km = eci_coord / 1000.0;
+
+        let re = self.attr.eqradius / 1000.0;
+        let theta = eci_coord_km.y.atan2(eci_coord_km.x); // azimuth
+        let gst = ct2lst(0.0, julian_day); // Greenwich mean sidereal time
+
+        let angle_sid = gst * 2.0 * PI / 24.0; // sidereal angle
+        let long = (theta - angle_sid).rem_euclid(2.0 * PI).to_degrees(); // longitude
+        let r = f64::sqrt(eci_coord_km.x.powf(2.0) + eci_coord_km.y.powf(2.0));
+        let lat = eci_coord_km.z.atan2(r); // latitude
+        let alt = r / lat.cos() - re; // altitude
+
+        (lat.to_degrees(), long, alt)
     }
 }
 
