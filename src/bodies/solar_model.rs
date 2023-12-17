@@ -477,12 +477,23 @@ impl Earth {
         nrlmsise00c::gtd7_safe(&mut input, &flags)
     }
 
-    pub fn eci2geo(&self, eci_coord: &Array3d, julian_day: f64) -> LLH {
+    /// Convert Earth-centered inertial coordinates to geographic spherical coords
+    /// Ref: https://idlastro.gsfc.nasa.gov/ftp/pro/astro/eci2geo.pro
+    ///
+    /// ### Arguments
+    /// * 'eci_coord' - ECI coordinate to be translated into Earth fixed coordinates.
+    ///                 Coordinates should be provided in meters.
+    /// * 'jd2000' - Julian day in decimal hours from the J2000 epoch.
+    ///
+    /// ### Returns
+    ///     LLH struct containing latitude, longitude and altitude (in meters).
+    ///  
+    pub fn eci2geo(&self, eci_coord: &Array3d, jd2000: f64) -> LLH {
         let eci_coord_km = eci_coord / 1000.0;
 
         let re = self.attr.eqradius / 1000.0;
         let theta = eci_coord_km.y.atan2(eci_coord_km.x); // azimuth
-        let gst = ct2lst(0.0, julian_day); // Greenwich mean sidereal time
+        let gst = ct2lst(0.0, jd2000); // Greenwich mean sidereal time
 
         let angle_sid = gst * 2.0 * PI / 24.0; // sidereal angle
         let long = (theta - angle_sid).rem_euclid(2.0 * PI).to_degrees(); // longitude

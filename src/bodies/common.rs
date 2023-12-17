@@ -53,7 +53,7 @@ pub fn ecliptic_to_equatorial(x: &Array3d, obliquity: f64) -> Array3d {
 /// Convert UTC datetime objects into julian days.
 /// Ref: https://idlastro.gsfc.nasa.gov/ftp/pro/astro/jdcnv.pro
 #[inline]
-pub fn jdconv(date: &DateTime<Utc>) -> f64 {
+fn jdconv(date: &DateTime<Utc>) -> f64 {
     let l: i32 = (date.month() as i32 - 14) / 12;
     let julian = date.day() as i32 - 32075
         + 1461 * (date.year() + 4800 + l) / 4
@@ -73,8 +73,17 @@ pub fn days_since_j2000(date: &DateTime<Utc>) -> f64 {
 
 /// Convert civil time into local mean sidereal time.
 /// Ref: https://idlastro.gsfc.nasa.gov/ftp/pro/astro/ct2lst.pro
+///
+/// ### Arguments
+/// * 'lng' - The longitude in degrees (east of Greenwich) of the place for
+///           which the local sidereal time is desired, scalar.   The Greenwich
+///           mean sidereal time (GMST) can be found by setting Lng = 0.
+/// * 'julian_day' -  Time of day of the specified date in decimal hours from j2000 epoch.
+///
+/// ### Returns
+///     Mean sidereal time following input arguments as a double.
 #[inline]
-pub fn ct2lst(long_deg: f64, julian_day: f64) -> f64 {
+pub fn ct2lst(lng: f64, julian_day: f64) -> f64 {
     const C0: f64 = 280.46061837;
     const C1: f64 = 360.98564736629;
     const C2: f64 = 0.000387933;
@@ -84,7 +93,7 @@ pub fn ct2lst(long_deg: f64, julian_day: f64) -> f64 {
     let t = julian_day / JULIAN_CENTURY;
     let theta = C0 + (C1 * julian_day) + t * t * (C2 - t / C3);
 
-    ((theta + long_deg) / 15.0).rem_euclid(24.0)
+    ((theta + lng) / 15.0).rem_euclid(24.0)
 }
 
 #[cfg(test)]

@@ -3,7 +3,7 @@ use chrono::{DateTime, Duration, Utc};
 use crate::{
     bodies::{
         self,
-        common::{days_since_j2000, jdconv},
+        common::days_since_j2000,
         sim_object::SimobjT,
         solar_model::{make_earth, make_moon, make_sun, Earth, KeplerModel, Moon, Solarobj, Sun},
     },
@@ -162,7 +162,7 @@ impl Environment {
             Solarobj::Sun => LLH::default(),
             Solarobj::Earth => self
                 .earth
-                .eci2geo(&sim_obj.coords, jdconv(&self.current_time)),
+                .eci2geo(&sim_obj.coords, days_since_j2000(&self.current_time)),
             Solarobj::Moon => LLH::default(),
         }
     }
