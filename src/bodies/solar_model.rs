@@ -71,18 +71,18 @@ pub struct SunModel {
 
 pub struct Sun {
     pub model: SunModel,
-    pub attr: SolarAttr,
+    pub attr: &'static SolarAttr,
 }
 
 pub struct Earth {
     sw_indices: Vec<SwIndex>, // Space Weather Indices.
     pub model: EarthModel,
-    pub attr: SolarAttr,
+    pub attr: &'static SolarAttr,
 }
 
 pub struct Moon {
     pub model: PlanetPSModel,
-    pub attr: SolarAttr,
+    pub attr: &'static SolarAttr,
 }
 
 /// Provides utilities for calculating planetary bodies with a Kepler model.
@@ -397,7 +397,7 @@ pub fn make_sun() -> Sun {
                 velocity: Array3d::default(),
             },
         },
-        attr: SolarAttr {
+        attr: &SolarAttr {
             radius: 6.95700e8,
             mass: 1.9891e30,
             obliquity: 0.0,
@@ -465,7 +465,7 @@ pub fn make_earth(day: f64, sw_indices: &Vec<SwIndex>) -> Earth {
             },
         },
         sw_indices: sw_indices_clone,
-        attr: SolarAttr {
+        attr: &SolarAttr {
             radius: 6371000.0,
             mass: 5.9722e24,
             obliquity: 23.44,
@@ -505,7 +505,7 @@ pub fn make_moon(day: f64, earth_coords: &Array3d) -> Moon {
             },
             solartype: Solarobj::Moon,
         },
-        attr: SolarAttr {
+        attr: &SolarAttr {
             radius: 1.7381e6,
             mass: 7.3459e22,
             obliquity: 1.5424,
