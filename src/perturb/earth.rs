@@ -8,38 +8,8 @@ use crate::{
     output,
     types::{l2_norm, Array3d},
 };
-use chrono::{Datelike, Duration, Timelike};
+use chrono::Duration;
 use perturb::common;
-
-fn nrlmsise00_model(env: &Environment, sim_obj_alt_meters: f64) -> nrlmsise00c::NRLMSISEOutput {
-    let current_datetime =
-        env.start_time + Duration::milliseconds((env.get_sim_time() * 1000.0) as i64);
-    let seconds_from_midnight = current_datetime.num_seconds_from_midnight() as f64;
-    let sw_index = env.earth.get_space_weather_index(current_datetime);
-
-    let mut input = nrlmsise00c::NRLMSISEInput {
-        year: current_datetime.year(),
-        doy: current_datetime.ordinal() as i32,
-        sec: seconds_from_midnight,
-        alt: sim_obj_alt_meters / 1000.0,
-        // Use location of prime meridian as static point.
-        // This may be enhanced by converting sim obj from ECI to ECEF.
-        g_lat: 0.0,
-        g_long: 0.0,
-        lst: seconds_from_midnight / 3600.0 + 0.0 / 15.0, // (lst=sec/3600 + g_long/15)
-        f107A: sw_index.4,
-        f107: sw_index.3,
-        ap: sw_index.2,
-        ap_a: [0f64; 7usize],
-    };
-    let flags = nrlmsise00c::NRLMSISEFlags {
-        switches: [1; 24usize],
-        sw: [0f64; 24usize],
-        swc: [0f64; 24usize],
-    };
-
-    nrlmsise00c::gtd7_safe(&mut input, &flags)
-}
 
 fn calculate_earth_atmospheric_drag_perturbation(
     sim_obj: &SimobjT,
@@ -56,7 +26,9 @@ fn calculate_earth_atmospheric_drag_perturbation(
         return Array3d::default();
     }
 
-    let atmos_model_result = nrlmsise00_model(env, sim_obj_alt);
+    let current_datetime =
+        env.start_time + Duration::milliseconds((env.get_sim_time() * 1000.0) as i64);
+    let atmos_model_result = env.earth.nrlmsise00_model(current_datetime, sim_obj_alt);
     let norm_velocity = l2_norm(&sim_obj.velocity);
     let drag_force = 0.5
         * sim_obj.drag_coeff

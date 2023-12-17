@@ -1,4 +1,4 @@
-use chrono::DateTime;
+use chrono::{DateTime, Datelike, Timelike, Utc};
 use serde::{Deserialize, Serialize};
 use strum_macros::Display;
 use types::Array3d;
@@ -452,7 +452,7 @@ pub fn make_sun() -> Sun {
 }
 
 impl Earth {
-    pub fn get_space_weather_index(&self, query_time: DateTime<chrono::Utc>) -> &SwIndex {
+    fn get_space_weather_index(&self, query_time: DateTime<chrono::Utc>) -> &SwIndex {
         // if current index did not match the query, search the entire index list for a match.
         for sw_index in self.sw_indices.iter() {
             if sw_index.0 <= query_time && query_time <= sw_index.1 {
@@ -462,6 +462,38 @@ impl Earth {
 
         // no index match was made so just return the first index.
         self.sw_indices.get(0).unwrap()
+    }
+
+    pub fn nrlmsise00_model(
+        &self,
+        current_datetime: DateTime<Utc>,
+        sim_obj_alt_meters: f64,
+    ) -> nrlmsise00c::NRLMSISEOutput {
+        let seconds_from_midnight = current_datetime.num_seconds_from_midnight() as f64;
+        let sw_index = self.get_space_weather_index(current_datetime);
+
+        let mut input = nrlmsise00c::NRLMSISEInput {
+            year: current_datetime.year(),
+            doy: current_datetime.ordinal() as i32,
+            sec: seconds_from_midnight,
+            alt: sim_obj_alt_meters / 1000.0,
+            // Use location of prime meridian as static point.
+            // This may be enhanced by converting sim obj from ECI to ECEF.
+            g_lat: 0.0,
+            g_long: 0.0,
+            lst: seconds_from_midnight / 3600.0 + 0.0 / 15.0, // (lst=sec/3600 + g_long/15)
+            f107A: sw_index.4,
+            f107: sw_index.3,
+            ap: sw_index.2,
+            ap_a: [0f64; 7usize],
+        };
+        let flags = nrlmsise00c::NRLMSISEFlags {
+            switches: [1; 24usize],
+            sw: [0f64; 24usize],
+            swc: [0f64; 24usize],
+        };
+
+        nrlmsise00c::gtd7_safe(&mut input, &flags)
     }
 }
 
