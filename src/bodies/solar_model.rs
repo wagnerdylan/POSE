@@ -406,8 +406,24 @@ pub fn make_sun() -> Sun {
 }
 
 impl Earth {
+    /// Grab Earth space weather data for use in earth based models. This method
+    /// will return data held by the 0th index if query time cannot be matched into
+    /// configured space weather data indices.
+    ///
+    ///  ### Arguments
+    /// * 'query_time' - UTC Datetime object used to find space weather index.
+    ///
+    /// ### Return
+    ///     Space weather index matching provided query time if found. Index 0
+    ///     is provided on no match.
+    ///
+    /// ### Panics
+    ///     Panics if sw_indices was not populated before calling this method.
+    ///
     fn get_space_weather_index(&self, query_time: DateTime<chrono::Utc>) -> &SwIndex {
-        // if current index did not match the query, search the entire index list for a match.
+        // Indexes are defined by inclusive datetime ranges. This logic may be optimized by
+        // potentially caching the previous matched index or by doing a binary search on the
+        // index space for a match.
         for sw_index in self.sw_indices.iter() {
             if sw_index.0 <= query_time && query_time <= sw_index.1 {
                 return sw_index;
@@ -418,6 +434,15 @@ impl Earth {
         self.sw_indices.get(0).unwrap()
     }
 
+    /// Call into the nrlmsise00 model for generating atmospheric parameters.
+    ///
+    ///  ### Arguments
+    /// * 'current_datetime' - UTC Datetime of to use within the model call.
+    /// * 'sim_obj_alt_meters' - Altitude of the query point above Earth.
+    ///
+    /// ### Return
+    ///     Output object containing data generated from the nrlmsise00 model.
+    ///
     pub fn nrlmsise00_model(
         &self,
         current_datetime: DateTime<Utc>,
