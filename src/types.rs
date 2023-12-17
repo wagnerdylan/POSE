@@ -1,26 +1,23 @@
 use serde::{Deserialize, Serialize};
 use std::{iter::Sum, ops};
 
-#[derive(Serialize, Deserialize, Debug, Clone, Copy)]
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, Default)]
 pub struct Array3d {
     pub x: f64,
     pub y: f64,
     pub z: f64,
 }
 
+#[derive(Serialize, Deserialize, Default)]
+pub struct LLH {
+    pub lat: f64,
+    pub long: f64,
+    pub alt: f64,
+}
+
 impl Array3d {
     pub fn dot(&self, other: &Array3d) -> f64 {
         (self.x * other.x) + (self.y * other.y) + (self.z * other.z)
-    }
-}
-
-impl Default for Array3d {
-    fn default() -> Self {
-        Self {
-            x: 0f64,
-            y: 0f64,
-            z: 0f64,
-        }
     }
 }
 

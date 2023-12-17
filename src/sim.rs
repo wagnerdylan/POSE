@@ -17,6 +17,8 @@ pub fn apply_perturbations(
 ) {
     // Update solar ecliptic coordinates for use in perturbation calculations.
     sim_obj.coords_abs = env.calculate_se_coords(sim_obj);
+    // Update fixed accelerating coordinates if applicable.
+    sim_obj.coords_fixed = env.calculate_fixed_coords(sim_obj);
 
     let mut net_acceleration = Array3d::default();
     // Calculate the perturbation forces for all planetary objects.

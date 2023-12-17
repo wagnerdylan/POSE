@@ -3,13 +3,13 @@ use chrono::{DateTime, Duration, Utc};
 use crate::{
     bodies::{
         self,
-        common::days_since_j2000,
+        common::{days_since_j2000, jdconv},
         sim_object::SimobjT,
         solar_model::{make_earth, make_moon, make_sun, Earth, KeplerModel, Moon, Solarobj, Sun},
     },
     input::{EnvInitData, RuntimeParameters},
     output,
-    types::{self, Array3d},
+    types::{self, Array3d, LLH},
 };
 
 // Hill Sphere source
@@ -154,6 +154,16 @@ impl Environment {
                         self.moon.attr.obliquity,
                     )
             }
+        }
+    }
+
+    pub fn calculate_fixed_coords(&self, sim_obj: &SimobjT) -> LLH {
+        match sim_obj.soi {
+            Solarobj::Sun => LLH::default(),
+            Solarobj::Earth => self
+                .earth
+                .eci2geo(&sim_obj.coords, jdconv(&self.current_time)),
+            Solarobj::Moon => LLH::default(),
         }
     }
 

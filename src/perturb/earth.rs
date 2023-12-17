@@ -11,19 +11,20 @@ fn calculate_earth_atmospheric_drag_perturbation(
     env: &Environment,
     perturbations_out: &mut Option<&mut Vec<output::PerturbationOut>>,
 ) -> Array3d {
-    let distance_sim_obj =
-        l2_norm(&(sim_obj.coords_abs - env.earth.model.state.coords.current_coords));
-    let sim_obj_alt = distance_sim_obj - env.earth.attr.eqradius;
+    match sim_obj.soi {
+        Solarobj::Earth => {}
+        _ => return Array3d::default(),
+    }
 
     // return an empty result if sim object earth relative altitude is not within a range which
     // atmospheric drag will be relevant to simulation.
-    if !(0.0..=1_000.0 * 1000.0).contains(&sim_obj_alt) {
+    if !(0.0..=1_000.0 * 1000.0).contains(&sim_obj.coords_fixed.alt) {
         return Array3d::default();
     }
 
     let atmos_model_result = env
         .earth
-        .nrlmsise00_model(env.current_time, &sim_obj.coords);
+        .nrlmsise00_model(env.current_time, &sim_obj.coords_fixed);
     let norm_velocity = l2_norm(&sim_obj.velocity);
     let drag_force = 0.5
         * sim_obj.drag_coeff

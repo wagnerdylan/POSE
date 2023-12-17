@@ -5,9 +5,9 @@ use serde::{Deserialize, Serialize};
 use strum_macros::Display;
 use types::Array3d;
 
-use crate::input::SwIndex;
+use crate::{input::SwIndex, types::LLH};
 
-use super::common::{ct2lst, jdconv};
+use super::common::ct2lst;
 
 const METERS_PER_ASTRONOMICAL_UNIT: f64 = 1.4959787e+11;
 const METERS_PER_EARTH_EQUATORIAL_RADIUS: f64 = 6378140.0;
@@ -442,7 +442,7 @@ impl Earth {
     ///
     ///  ### Arguments
     /// * 'current_datetime' - UTC Datetime of to use within the model call.
-    /// * 'sim_obj_eci_coord' - ECI sim object coordinates in meters.
+    /// * 'fixed_coords' - ECEF coordinates of query point.
     ///
     /// ### Return
     ///     Output object containing data generated from the nrlmsise00 model.
@@ -450,20 +450,19 @@ impl Earth {
     pub fn nrlmsise00_model(
         &self,
         current_datetime: DateTime<Utc>,
-        sim_obj_eci_coord: &Array3d,
+        fixed_coords: &LLH,
     ) -> nrlmsise00c::NRLMSISEOutput {
         let seconds_from_midnight = current_datetime.num_seconds_from_midnight() as f64;
         let sw_index = self.get_space_weather_index(current_datetime);
-        let (lat, long, alt) = self.eci2geo(sim_obj_eci_coord, jdconv(&current_datetime));
 
         let mut input = nrlmsise00c::NRLMSISEInput {
             year: current_datetime.year(),
             doy: current_datetime.ordinal() as i32,
             sec: seconds_from_midnight,
-            alt,
-            g_lat: lat,
-            g_long: long,
-            lst: seconds_from_midnight / 3600.0 + long / 15.0, // (lst=sec/3600 + g_long/15)
+            alt: fixed_coords.alt / 1000.0,
+            g_lat: fixed_coords.lat,
+            g_long: fixed_coords.long,
+            lst: seconds_from_midnight / 3600.0 + fixed_coords.long / 15.0, // (lst=sec/3600 + g_long/15)
             f107A: sw_index.4,
             f107: sw_index.3,
             ap: sw_index.2,
@@ -478,7 +477,7 @@ impl Earth {
         nrlmsise00c::gtd7_safe(&mut input, &flags)
     }
 
-    pub fn eci2geo(&self, eci_coord: &Array3d, julian_day: f64) -> (f64, f64, f64) {
+    pub fn eci2geo(&self, eci_coord: &Array3d, julian_day: f64) -> LLH {
         let eci_coord_km = eci_coord / 1000.0;
 
         let re = self.attr.eqradius / 1000.0;
@@ -491,7 +490,11 @@ impl Earth {
         let lat = eci_coord_km.z.atan2(r); // latitude
         let alt = r / lat.cos() - re; // altitude
 
-        (lat.to_degrees(), long, alt)
+        LLH {
+            lat: lat.to_degrees(),
+            long,
+            alt: alt * 1000.0, // Convert to meters to keep consistency.
+        }
     }
 }
 

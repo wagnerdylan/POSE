@@ -35,7 +35,10 @@ pub struct SimulationObjectParameters {
     /// Absolute coordinate of object in the y axis
     pub z_abs_coord: f64,
     /// Absolute coordinate of object in the z axis
-    pub x_coord: f64, // Coordinate of object in the x axis
+    pub lat: f64,
+    pub long: f64,
+    pub altitude: f64,
+    pub x_coord: f64,    // Coordinate of object in the x axis
     pub y_coord: f64,    // Coordinate of object in the y axis
     pub z_coord: f64,    // Coordinate of object in the z axis
     pub x_velocity: f64, // Velocity of object in the x axis

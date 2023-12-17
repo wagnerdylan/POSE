@@ -36,6 +36,7 @@ mod types;
 fn init_simulation_objects(env: &environment::Environment, sim_objs: &mut Vec<SimobjT>) {
     for sim_obj in sim_objs {
         sim_obj.coords_abs = env.calculate_se_coords(sim_obj);
+        sim_obj.coords_fixed = env.calculate_fixed_coords(sim_obj);
     }
 }
 
