@@ -38,7 +38,7 @@ fn calculate_earth_atmospheric_drag_perturbation(
         out.push(output::PerturbationOut {
             id: sim_obj.id,
             sim_time: env.get_sim_time(),
-            petrub_type: "drag_earth".to_string(),
+            petrub_type: "drag_earth_nrlmsise00".to_string(),
             acceleration_x_mpss: drag_accel.x,
             acceleration_y_mpss: drag_accel.y,
             acceleration_z_mpss: drag_accel.z,
