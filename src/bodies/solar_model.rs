@@ -80,6 +80,7 @@ pub struct Sun {
 
 pub struct Earth {
     sw_indices: Vec<SwIndex>, // Space Weather Indices.
+    current_sw: usize,
     pub model: EarthModel,
     pub attr: &'static SolarAttr,
 }
@@ -421,18 +422,23 @@ impl Earth {
     /// ### Panics
     ///     Panics if a match cannot be found.
     ///
-    fn get_space_weather_index(&self, query_time: DateTime<chrono::Utc>) -> &SwIndex {
+    fn get_space_weather_index(&self, query_time: DateTime<chrono::Utc>) -> usize {
         let cmp_func = |probe: &SwIndex| probe.cmp(query_time);
         let search_result = self.sw_indices.binary_search_by(cmp_func);
 
         // A match should always be found if correct simulation configuration has been provided.
         match search_result {
-            Ok(index) => self.sw_indices.get(index).unwrap(),
+            Ok(index) => index,
             Err(_) => panic!(),
         }
     }
 
+    pub fn set_query_space_weather_index(&mut self, query_time: DateTime<chrono::Utc>) {
+        self.current_sw = self.get_space_weather_index(query_time);
+    }
+
     /// Call into the nrlmsise00 model for generating atmospheric parameters.
+    /// This method relies on Earth state being set correctly before calling.
     ///
     ///  ### Arguments
     /// * 'current_datetime' - UTC Datetime of to use within the model call.
@@ -447,7 +453,7 @@ impl Earth {
         fixed_coords: &LLH,
     ) -> nrlmsise00c::NRLMSISEOutput {
         let seconds_from_midnight = current_datetime.num_seconds_from_midnight() as f64;
-        let sw_index = self.get_space_weather_index(current_datetime);
+        let sw_index = self.sw_indices.get(self.current_sw).unwrap();
 
         let mut input = nrlmsise00c::NRLMSISEInput {
             year: current_datetime.year(),
@@ -516,6 +522,7 @@ pub fn make_earth(day: f64, sw_indices: &Vec<SwIndex>) -> Earth {
             },
         },
         sw_indices: sw_indices_clone,
+        current_sw: 0,
         attr: &SolarAttr {
             eqradius: 6378137.0,
             mass: 5.9722e24,

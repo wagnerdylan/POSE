@@ -46,7 +46,7 @@ pub struct SimulationParameters {
     pub sim_solar_step: f32,
 }
 
-#[derive(Deserialize, Clone, Default)]
+#[derive(Deserialize, Clone, Default, Debug)]
 pub struct SwIndex(
     pub DateTime<chrono::Utc>, // Index start time.
     pub DateTime<chrono::Utc>, // Index end time.

@@ -121,18 +121,19 @@ impl Environment {
         // Perform a hard update if advanced current simulation time would exceed future simulation time
         if self.sim_time_s >= self.future_day_update_s {
             self.update(runtime_params);
-            // Exit out of function as hard update handled advance of simulation environment
-            return;
+        } else {
+            // Perform a linear interpolation from the current solar object coords to the future solar coords
+            let interp_point = (self.sim_time_s - self.last_day_update_s)
+                / (self.future_day_update_s - self.last_day_update_s);
+
+            // Linear interpolate for all solar objs within simulation
+            self.sun.model.state.coords.lerp_set(interp_point);
+            self.earth.model.state.coords.lerp_set(interp_point);
+            self.moon.model.state.coords.lerp_set(interp_point);
         }
 
-        // Perform a linear interpolation from the current solar object coords to the future solar coords
-        let interp_point = (self.sim_time_s - self.last_day_update_s)
-            / (self.future_day_update_s - self.last_day_update_s);
-
-        // Linear interpolate for all solar objs within simulation
-        self.sun.model.state.coords.lerp_set(interp_point);
-        self.earth.model.state.coords.lerp_set(interp_point);
-        self.moon.model.state.coords.lerp_set(interp_point);
+        // Update body model state for use on next sim step.
+        self.earth.set_query_space_weather_index(self.current_time);
     }
 
     // Calculate solar ecliptic coordinates for a given simulation object from
@@ -187,6 +188,7 @@ impl Environment {
 
         // This forces a hard update which calculates future locations of solar bodies
         env.update(runtime_params);
+        env.earth.set_query_space_weather_index(runtime_params.date);
 
         env
     }
