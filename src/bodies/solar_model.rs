@@ -410,32 +410,26 @@ pub fn make_sun() -> Sun {
 }
 
 impl Earth {
-    /// Grab Earth space weather data for use in earth based models. This method
-    /// will return data held by the 0th index if query time cannot be matched into
-    /// configured space weather data indices.
+    /// Grab Earth space weather data for use in earth based models.
     ///
     ///  ### Arguments
     /// * 'query_time' - UTC Datetime object used to find space weather index.
     ///
     /// ### Return
-    ///     Space weather index matching provided query time if found. Index 0
-    ///     is provided on no match.
+    ///     Space weather index matching provided query time if found.
     ///
     /// ### Panics
-    ///     Panics if sw_indices was not populated before calling this method.
+    ///     Panics if a match cannot be found.
     ///
     fn get_space_weather_index(&self, query_time: DateTime<chrono::Utc>) -> &SwIndex {
-        // Indexes are defined by inclusive datetime ranges. This logic may be optimized by
-        // potentially caching the previous matched index or by doing a binary search on the
-        // index space for a match.
-        for sw_index in self.sw_indices.iter() {
-            if sw_index.0 <= query_time && query_time <= sw_index.1 {
-                return sw_index;
-            }
-        }
+        let cmp_func = |probe: &SwIndex| probe.cmp(query_time);
+        let search_result = self.sw_indices.binary_search_by(cmp_func);
 
-        // no index match was made so just return the first index.
-        self.sw_indices.get(0).unwrap()
+        // A match should always be found if correct simulation configuration has been provided.
+        match search_result {
+            Ok(index) => self.sw_indices.get(index).unwrap(),
+            Err(_) => panic!(),
+        }
     }
 
     /// Call into the nrlmsise00 model for generating atmospheric parameters.
@@ -510,11 +504,10 @@ impl Earth {
 }
 
 pub fn make_earth(day: f64, sw_indices: &Vec<SwIndex>) -> Earth {
-    // Ensure at least one element is always included into the earth space weather indices list.
     let mut sw_indices_clone = sw_indices.clone();
-    if sw_indices_clone.is_empty() {
-        sw_indices_clone.push(SwIndex::default());
-    }
+    // Ensure the indices list is sorted as binary search will be done on this data.
+    sw_indices_clone.sort_by_key(|k| k.0);
+
     let mut earth_body = Earth {
         model: EarthModel {
             state: ModelState {

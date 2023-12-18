@@ -1,5 +1,5 @@
 use bodies::sim_object::{SimObjectType, SimobjT};
-use chrono::DateTime;
+use chrono::{DateTime, Utc};
 use clap::Parser;
 use serde::Deserialize;
 use std::{error::Error, fs::File, io::BufReader, path::Path};
@@ -54,6 +54,19 @@ pub struct SwIndex(
     pub f64,                   // F10.7_OBS value.
     pub f64,                   // F10.7_OBS_CENTER8 value.
 );
+
+impl SwIndex {
+    #[inline]
+    pub(crate) fn cmp(&self, query_time: DateTime<Utc>) -> std::cmp::Ordering {
+        if self.0.le(&query_time) && query_time.le(&self.1) {
+            std::cmp::Ordering::Equal
+        } else if query_time.lt(&self.0) {
+            std::cmp::Ordering::Greater
+        } else {
+            std::cmp::Ordering::Less
+        }
+    }
+}
 
 #[derive(Deserialize)]
 pub struct InitData {
