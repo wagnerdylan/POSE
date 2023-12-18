@@ -394,19 +394,21 @@ impl KeplerModel for SunModel {
     }
 }
 
-pub fn make_sun() -> Sun {
-    Sun {
-        model: SunModel {
-            state: ModelState {
-                coords: SolarobjCoords::default(),
-                velocity: Array3d::default(),
+impl Sun {
+    pub fn new() -> Self {
+        Sun {
+            model: SunModel {
+                state: ModelState {
+                    coords: SolarobjCoords::default(),
+                    velocity: Array3d::default(),
+                },
             },
-        },
-        attr: &SolarAttr {
-            eqradius: 6.95700e8,
-            mass: 1.9891e30,
-            obliquity: 0.0,
-        },
+            attr: &SolarAttr {
+                eqradius: 6.95700e8,
+                mass: 1.9891e30,
+                obliquity: 0.0,
+            },
+        }
     }
 }
 
@@ -507,74 +509,76 @@ impl Earth {
             alt: alt * 1000.0, // Convert to meters to keep consistency.
         }
     }
+
+    pub fn new(day: f64, sw_indices: &Vec<SwIndex>) -> Self {
+        let mut sw_indices_clone = sw_indices.clone();
+        // Ensure the indices list is sorted as binary search will be done on this data.
+        sw_indices_clone.sort_by_key(|k| k.0);
+
+        let mut earth_body = Self {
+            model: EarthModel {
+                state: ModelState {
+                    coords: SolarobjCoords::default(),
+                    velocity: Array3d::default(),
+                },
+            },
+            sw_indices: sw_indices_clone,
+            current_sw: 0,
+            attr: &SolarAttr {
+                eqradius: 6378137.0,
+                mass: 5.9722e24,
+                obliquity: 23.44,
+            },
+        };
+
+        let initial_coords = earth_body.model.ecliptic_cartesian_coords(day);
+        earth_body.model.state.coords.ahead_coords = initial_coords;
+        earth_body.model.state.coords.current_coords = initial_coords;
+        earth_body.model.state.coords.behind_coords = initial_coords;
+
+        earth_body
+    }
 }
 
-pub fn make_earth(day: f64, sw_indices: &Vec<SwIndex>) -> Earth {
-    let mut sw_indices_clone = sw_indices.clone();
-    // Ensure the indices list is sorted as binary search will be done on this data.
-    sw_indices_clone.sort_by_key(|k| k.0);
-
-    let mut earth_body = Earth {
-        model: EarthModel {
-            state: ModelState {
-                coords: SolarobjCoords::default(),
-                velocity: Array3d::default(),
+impl Moon {
+    pub fn new(day: f64, earth_coords: &Array3d) -> Self {
+        let mut moon_body = Self {
+            model: PlanetPSModel {
+                n0: 125.1228,
+                nc: -0.0529538083,
+                i0: 5.1454,
+                ic: 0.0,
+                w0: 318.0634,
+                wc: 0.1643573223,
+                a0: 60.2666 / EARTH_RADII_PER_ASTRONOMICAL_UNIT,
+                ac: 0.0,
+                e0: 0.054900,
+                ec: 0.0,
+                m0: 115.3654,
+                mc: 13.0649929509,
+                mag_base: 0.23,
+                mag_phase_factor: 0.026,
+                mag_nonlinear_factor: 4.0e-9,
+                mag_nonlinear_exponent: 4f64,
+                state: ModelState {
+                    coords: SolarobjCoords::default(),
+                    velocity: Array3d::default(), // Zero until sim update
+                },
+                solartype: Solarobj::Moon,
             },
-        },
-        sw_indices: sw_indices_clone,
-        current_sw: 0,
-        attr: &SolarAttr {
-            eqradius: 6378137.0,
-            mass: 5.9722e24,
-            obliquity: 23.44,
-        },
-    };
-
-    let initial_coords = earth_body.model.ecliptic_cartesian_coords(day);
-    earth_body.model.state.coords.ahead_coords = initial_coords;
-    earth_body.model.state.coords.current_coords = initial_coords;
-    earth_body.model.state.coords.behind_coords = initial_coords;
-
-    earth_body
-}
-
-pub fn make_moon(day: f64, earth_coords: &Array3d) -> Moon {
-    let mut moon_body = Moon {
-        model: PlanetPSModel {
-            n0: 125.1228,
-            nc: -0.0529538083,
-            i0: 5.1454,
-            ic: 0.0,
-            w0: 318.0634,
-            wc: 0.1643573223,
-            a0: 60.2666 / EARTH_RADII_PER_ASTRONOMICAL_UNIT,
-            ac: 0.0,
-            e0: 0.054900,
-            ec: 0.0,
-            m0: 115.3654,
-            mc: 13.0649929509,
-            mag_base: 0.23,
-            mag_phase_factor: 0.026,
-            mag_nonlinear_factor: 4.0e-9,
-            mag_nonlinear_exponent: 4f64,
-            state: ModelState {
-                coords: SolarobjCoords::default(),
-                velocity: Array3d::default(), // Zero until sim update
+            attr: &SolarAttr {
+                eqradius: 1.7381e6,
+                mass: 7.3459e22,
+                obliquity: 1.5424,
             },
-            solartype: Solarobj::Moon,
-        },
-        attr: &SolarAttr {
-            eqradius: 1.7381e6,
-            mass: 7.3459e22,
-            obliquity: 1.5424,
-        },
-    };
+        };
 
-    // Calculate the location of the moon and convert to heliocentric coords
-    let initial_coords = moon_body.model.ecliptic_cartesian_coords(day) + earth_coords;
-    moon_body.model.state.coords.ahead_coords = initial_coords;
-    moon_body.model.state.coords.current_coords = initial_coords;
-    moon_body.model.state.coords.behind_coords = initial_coords;
+        // Calculate the location of the moon and convert to heliocentric coords
+        let initial_coords = moon_body.model.ecliptic_cartesian_coords(day) + earth_coords;
+        moon_body.model.state.coords.ahead_coords = initial_coords;
+        moon_body.model.state.coords.current_coords = initial_coords;
+        moon_body.model.state.coords.behind_coords = initial_coords;
 
-    moon_body
+        moon_body
+    }
 }

@@ -5,7 +5,7 @@ use crate::{
         self,
         common::days_since_j2000,
         sim_object::SimobjT,
-        solar_model::{make_earth, make_moon, make_sun, Earth, KeplerModel, Moon, Solarobj, Sun},
+        solar_model::{Earth, KeplerModel, Moon, Solarobj, Sun},
     },
     input::{EnvInitData, RuntimeParameters},
     output,
@@ -171,9 +171,9 @@ impl Environment {
     pub fn new(runtime_params: &RuntimeParameters, init_data: EnvInitData) -> Environment {
         let day = days_since_j2000(&runtime_params.date);
 
-        let sun_precalc = make_sun();
-        let earth_precalc = make_earth(day, &init_data.earth_sw);
-        let moon_precalc = make_moon(day, &earth_precalc.model.state.coords.current_coords);
+        let sun_precalc = Sun::new();
+        let earth_precalc = Earth::new(day, &init_data.earth_sw);
+        let moon_precalc = Moon::new(day, &earth_precalc.model.state.coords.current_coords);
 
         let mut env = Environment {
             start_time: runtime_params.date,
