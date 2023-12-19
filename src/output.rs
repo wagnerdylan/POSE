@@ -28,7 +28,8 @@ pub struct PerturbationOut {
 pub struct SimulationObjectParameters {
     pub id: u32,       // ID of the object
     pub sim_time: f64, // Simulation time
-    pub soi: String,   // Sphere of influence in string form
+    pub name: String,
+    pub soi: String, // Sphere of influence in string form
     pub x_abs_coord: f64,
     /// Absolute coordinate of object in the x axis
     pub y_abs_coord: f64,

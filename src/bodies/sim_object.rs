@@ -22,6 +22,7 @@ pub struct SimobjT {
     pub coords_abs: Array3d,
     #[serde(skip_deserializing)]
     pub coords_fixed: LLH,
+    pub name: String,
     pub soi: Solarobj,
     pub coords: Array3d,
     pub velocity: Array3d,
@@ -40,6 +41,7 @@ impl SimobjT {
         output::SimulationObjectParameters {
             id: self.id,
             sim_time,
+            name: self.name.clone(),
             soi: self.soi.to_string(),
             x_abs_coord: abs_coords.x,
             y_abs_coord: abs_coords.y,
