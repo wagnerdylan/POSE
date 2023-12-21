@@ -25,19 +25,6 @@ pub fn l2_norm(x: &Array3d) -> f64 {
     x.dot(x).sqrt()
 }
 
-pub fn normalize(x: &Array3d, l2_norm_precalc: Option<f64>) -> Array3d {
-    let norm = match l2_norm_precalc {
-        Some(val) => val,
-        None => l2_norm(x),
-    };
-
-    Array3d {
-        x: x.x / norm,
-        y: x.y / norm,
-        z: x.z / norm,
-    }
-}
-
 impl<'a> Sum<&'a Self> for Array3d {
     fn sum<I>(iter: I) -> Self
     where
