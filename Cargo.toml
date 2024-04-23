@@ -13,6 +13,7 @@ strum = "*"
 strum_macros = "*"
 csv = "*"
 impl_ops = "*"
+rayon = "*"
 nrlmsise00c = { git = "https://github.com/wagnerdylan/NRLMSISE-00-C", version = "0.1.0", package = "nrlmsise-00-c" }
 
 [profile.release]
