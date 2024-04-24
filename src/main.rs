@@ -1,6 +1,6 @@
 //!
 //! POSE - Parallel Orbital Simulation Environment
-//! TODO - Add more doc
+//!
 
 use bodies::sim_object::SimobjT;
 use clap::Parser;
@@ -49,7 +49,6 @@ fn main() {
 
     init_simulation_objects(&env, &mut sim_bodies);
 
-    // TODO: dont box this
     let output_controller = Box::new(output::csv_output::CSVController::new(
         sim_params.output_dir.as_str(),
     ));
