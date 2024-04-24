@@ -86,6 +86,7 @@ fn write_out_simulation_results(
         return last_write;
     }
 
+    output::write_out_all_object_perturbations(env, sim_bodies, output_controller.as_mut());
     output::write_out_all_object_parameters(env, sim_bodies, output_controller.as_mut());
     output::write_out_all_solar_objects(env, output_controller.as_mut());
 

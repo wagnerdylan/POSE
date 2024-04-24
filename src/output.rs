@@ -37,8 +37,21 @@ pub struct SimulationObjectParameters {
     pub z_velocity: f64, // Velocity of object in the z axis
 }
 
+#[derive(Debug, Serialize)]
+pub struct SimulationObjectPerturbationOut {
+    pub id: u32,       // ID of the object
+    pub sim_time: f64, // Simulation time
+    pub name: String,
+    pub perturb_type: String,
+    pub x_accel: f64,
+    pub y_accel: f64,
+    pub z_accel: f64,
+}
+
 pub trait SimulationOutput {
     fn write_out_object_parameters(&mut self, object_params: SimulationObjectParameters);
+
+    fn write_out_object_perturbation(&mut self, perturb_object: SimulationObjectPerturbationOut);
 
     fn write_out_solar_object(&mut self, solar_object: SolarObjectOut);
 }
@@ -51,6 +64,7 @@ pub mod csv_output {
 
     pub struct CSVController {
         object_parameters_writer: csv::Writer<fs::File>,
+        object_perturbation_writer: csv::Writer<fs::File>,
         solar_object_writer: csv::Writer<fs::File>,
     }
 
@@ -68,6 +82,10 @@ pub mod csv_output {
                     full_dirpath.join("pose_object_parameters.csv"),
                 )
                 .unwrap(),
+                object_perturbation_writer: csv::Writer::from_path(
+                    full_dirpath.join("pose_object_perturbations.csv"),
+                )
+                .unwrap(),
                 solar_object_writer: csv::Writer::from_path(
                     full_dirpath.join("pose_solar_objects.csv"),
                 )
@@ -83,7 +101,7 @@ pub mod csv_output {
                 .expect(
                     "Failed to write simulation object parameters to the corresponding csv file.",
                 );
-            // Unwrap here as this is a critical error
+            // Treat as critical error.
             self.object_parameters_writer.flush().unwrap();
         }
 
@@ -91,8 +109,21 @@ pub mod csv_output {
             self.solar_object_writer
                 .serialize(solar_object)
                 .expect("Failed to write simulation solar objects to the corresponding csv file.");
-            // Unwrap here as this is a critical error
+            // Treat as critical error.
             self.solar_object_writer.flush().unwrap();
+        }
+
+        fn write_out_object_perturbation(
+            &mut self,
+            perturb_object: super::SimulationObjectPerturbationOut,
+        ) {
+            self.object_perturbation_writer
+                .serialize(perturb_object)
+                .expect(
+                "Failed to write out simulation object perturbation to the corresponding csv file.",
+            );
+            // Treat as critical error.
+            self.object_perturbation_writer.flush().unwrap();
         }
     }
 }
@@ -113,5 +144,19 @@ pub fn write_out_all_object_parameters(
 ) {
     for sim_obj in sim_objects {
         output_controller.write_out_object_parameters(sim_obj.to_output_form(env.get_sim_time()));
+    }
+}
+
+pub fn write_out_all_object_perturbations(
+    env: &environment::Environment,
+    sim_objects: &[bodies::sim_object::SimobjT],
+    output_controller: &mut dyn SimulationOutput,
+) {
+    for sim_obj in sim_objects {
+        if let Some(store) = &sim_obj.perturb_store {
+            for perturb_out in store.to_output_form(sim_obj.id, &sim_obj.name, env.get_sim_time()) {
+                output_controller.write_out_object_perturbation(perturb_out);
+            }
+        }
     }
 }

@@ -1,12 +1,16 @@
 use crate::{
-    bodies::{common::ecliptic_to_equatorial, sim_object::SimobjT, solar_model::Solarobj},
+    bodies::{
+        common::ecliptic_to_equatorial,
+        sim_object::{PerturbationDefinition, SimobjT},
+        solar_model::Solarobj,
+    },
     environment::Environment,
     types::Array3d,
 };
 
 use super::common::{newton_gravitational_field, newton_gravitational_field_third_body};
 
-fn calculate_solar_gravity_perturbation(sim_obj: &SimobjT, env: &Environment) -> Array3d {
+fn calculate_solar_gravity_perturbation(sim_obj: &mut SimobjT, env: &Environment) -> Array3d {
     let (r_0, r_tb, ob_0) = match sim_obj.soi {
         Solarobj::Sun => (
             env.sun.model.state.coords.current_coords,
@@ -36,7 +40,18 @@ fn calculate_solar_gravity_perturbation(sim_obj: &SimobjT, env: &Environment) ->
         newton_gravitational_field(&sim_obj.coords_abs, &r_0, env.sun.attr.mass)
     };
 
-    ecliptic_to_equatorial(&accel_ecliptic, ob_0)
+    let perturb = ecliptic_to_equatorial(&accel_ecliptic, ob_0);
+
+    if let Some(perturb_store) = &mut sim_obj.perturb_store {
+        perturb_store.sun_gravity = Some(PerturbationDefinition {
+            perturb_name: "sun_gravity".to_string(),
+            x_accel: perturb.x,
+            y_accel: perturb.y,
+            z_accel: perturb.z,
+        });
+    }
+
+    perturb
 }
 
 /// Calculate all solar perturbations on sim_obj
@@ -47,6 +62,6 @@ fn calculate_solar_gravity_perturbation(sim_obj: &SimobjT, env: &Environment) ->
 /// ### Returns
 /// Combined perturbations
 ///
-pub fn calculate_solar_perturbations(sim_obj: &SimobjT, env: &Environment) -> Array3d {
+pub fn calculate_solar_perturbations(sim_obj: &mut SimobjT, env: &Environment) -> Array3d {
     calculate_solar_gravity_perturbation(sim_obj, env)
 }

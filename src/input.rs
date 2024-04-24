@@ -4,6 +4,8 @@ use clap::Parser;
 use serde::Deserialize;
 use std::{error::Error, fs::File, io::BufReader, path::Path};
 
+use crate::bodies::sim_object::PerturbationStore;
+
 #[derive(Parser, Debug)]
 #[command(
     version,
@@ -38,6 +40,12 @@ pub struct SimulationParameters {
         default_value_t = 3600.0
     )]
     pub sim_solar_step: f32,
+    #[arg(
+        long,
+        help = "flag used to indicate perturbations should be written out.",
+        default_value_t = false
+    )]
+    pub write_perturbations: bool,
 }
 
 #[derive(Deserialize, Clone, Default, Debug)]
@@ -104,6 +112,10 @@ pub fn collect_simulation_inputs(
 
     assign_id(&mut sim_bodies);
 
+    if sim_params.write_perturbations {
+        init_perturbation_objects(&mut sim_bodies);
+    }
+
     let runtime_params = RuntimeParameters {
         date: ser_objs.date,
         halt_date: ser_objs.halt_date,
@@ -152,5 +164,18 @@ fn assign_id(sim_bodies: &mut Vec<SimobjT>) {
     for body in sim_bodies {
         body.id = id_inc;
         id_inc += 1;
+    }
+}
+
+/// Initialize perturbation store object within simulation body to
+/// Some() value. This indicates simulation output should include per
+/// body perturbation accelerations.
+///
+/// ### Argument
+/// * 'sim_bodies' - A vector containing both debris and spacecraft objects.
+///
+fn init_perturbation_objects(sim_bodies: &mut Vec<SimobjT>) {
+    for body in sim_bodies {
+        body.perturb_store = Some(PerturbationStore::default())
     }
 }

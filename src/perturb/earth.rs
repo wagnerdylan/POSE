@@ -1,12 +1,19 @@
 use crate::{
-    bodies::{common::ecliptic_to_equatorial, sim_object::SimobjT, solar_model::Solarobj},
+    bodies::{
+        common::ecliptic_to_equatorial,
+        sim_object::{PerturbationDefinition, SimobjT},
+        solar_model::Solarobj,
+    },
     environment::Environment,
     types::{l2_norm, Array3d},
 };
 
 use super::common::{newton_gravitational_field, newton_gravitational_field_third_body};
 
-fn calculate_earth_atmospheric_drag_perturbation(sim_obj: &SimobjT, env: &Environment) -> Array3d {
+fn calculate_earth_atmospheric_drag_perturbation(
+    sim_obj: &mut SimobjT,
+    env: &Environment,
+) -> Array3d {
     match sim_obj.soi {
         Solarobj::Earth => {}
         _ => return Array3d::default(),
@@ -29,10 +36,21 @@ fn calculate_earth_atmospheric_drag_perturbation(sim_obj: &SimobjT, env: &Enviro
         * norm_velocity.powf(2.0);
     let drag_force_vector = -drag_force * (sim_obj.velocity / norm_velocity);
 
-    drag_force_vector / sim_obj.mass
+    let perturb = drag_force_vector / sim_obj.mass;
+
+    if let Some(perturb_store) = &mut sim_obj.perturb_store {
+        perturb_store.earth_drag = Some(PerturbationDefinition {
+            perturb_name: "earth_drag_nrlmsise00".to_string(),
+            x_accel: perturb.x,
+            y_accel: perturb.y,
+            z_accel: perturb.z,
+        });
+    }
+
+    perturb
 }
 
-fn calculate_earth_gravity_perturbation(sim_obj: &SimobjT, env: &Environment) -> Array3d {
+fn calculate_earth_gravity_perturbation(sim_obj: &mut SimobjT, env: &Environment) -> Array3d {
     let (r_0, r_tb, ob_0) = match sim_obj.soi {
         Solarobj::Sun => (
             env.sun.model.state.coords.current_coords,
@@ -62,10 +80,21 @@ fn calculate_earth_gravity_perturbation(sim_obj: &SimobjT, env: &Environment) ->
         newton_gravitational_field(&sim_obj.coords_abs, &r_0, env.earth.attr.mass)
     };
 
-    ecliptic_to_equatorial(&accel_ecliptic, ob_0)
+    let perturb = ecliptic_to_equatorial(&accel_ecliptic, ob_0);
+
+    if let Some(perturb_store) = &mut sim_obj.perturb_store {
+        perturb_store.earth_gravity = Some(PerturbationDefinition {
+            perturb_name: "earth_gravity".to_string(),
+            x_accel: perturb.x,
+            y_accel: perturb.y,
+            z_accel: perturb.z,
+        });
+    }
+
+    perturb
 }
 
-pub fn calculate_earth_perturbations(sim_obj: &SimobjT, env: &Environment) -> Array3d {
+pub fn calculate_earth_perturbations(sim_obj: &mut SimobjT, env: &Environment) -> Array3d {
     calculate_earth_gravity_perturbation(sim_obj, env)
         + calculate_earth_atmospheric_drag_perturbation(sim_obj, env)
 }
