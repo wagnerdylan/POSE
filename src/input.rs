@@ -28,12 +28,6 @@ pub struct SimulationParameters {
     pub write_period: f64,
     #[arg(
         long,
-        help = "flag used to specify perturbation results per simulation objects.",
-        default_value_t = false
-    )]
-    pub write_out_pertub: bool,
-    #[arg(
-        long,
         help = "value to be used as the simulation time step in seconds.",
         default_value_t = 1.0
     )]
@@ -86,7 +80,6 @@ pub struct RuntimeParameters {
     pub date: DateTime<chrono::Utc>,      // Datetime in ISO 8601 format.
     pub halt_date: DateTime<chrono::Utc>, // Date used as simulation stopping condition.
     pub write_period: f64,
-    pub write_out_pertub: bool,
     pub sim_time_step: f32,
     pub sim_solar_step: f32,
 }
@@ -115,7 +108,6 @@ pub fn collect_simulation_inputs(
         date: ser_objs.date,
         halt_date: ser_objs.halt_date,
         write_period: sim_params.write_period,
-        write_out_pertub: sim_params.write_out_pertub,
         sim_time_step: sim_params.sim_time_step,
         sim_solar_step: sim_params.sim_solar_step,
     };

@@ -3,24 +3,12 @@ use crate::environment::Environment;
 use crate::perturb;
 use crate::{
     input,
-    output::{self, PerturbationOut},
+    output::{self},
     types::Array3d,
 };
 use rayon::prelude::*;
 
-const MAX_NUM_OF_PERTURBATIONS: usize = 4;
-
-pub fn apply_perturbations(
-    sim_obj: &mut SimobjT,
-    env: &Environment,
-    step_time_s: f64,
-    write_out_pertub: bool,
-) -> Option<Vec<PerturbationOut>> {
-    let mut perturbations_out: Option<Vec<PerturbationOut>> = match write_out_pertub {
-        true => Some(Vec::with_capacity(MAX_NUM_OF_PERTURBATIONS)),
-        false => None,
-    };
-
+pub fn apply_perturbations(sim_obj: &mut SimobjT, env: &Environment, step_time_s: f64) {
     // Update solar ecliptic coordinates for use in perturbation calculations.
     sim_obj.coords_abs = env.calculate_se_coords(sim_obj);
     // Update fixed accelerating coordinates if applicable.
@@ -28,24 +16,10 @@ pub fn apply_perturbations(
 
     let mut net_acceleration = Array3d::default();
     // Calculate the perturbation forces for all planetary objects.
-    net_acceleration = net_acceleration
-        + perturb::sol::calculate_solar_perturbations(
-            sim_obj,
-            env,
-            &mut perturbations_out.as_mut(),
-        );
-    net_acceleration = net_acceleration
-        + perturb::earth::calculate_earth_perturbations(
-            sim_obj,
-            env,
-            &mut perturbations_out.as_mut(),
-        );
-    net_acceleration = net_acceleration
-        + perturb::moon::calculate_moon_perturbations(
-            sim_obj,
-            env,
-            &mut perturbations_out.as_mut(),
-        );
+    net_acceleration = net_acceleration + perturb::sol::calculate_solar_perturbations(sim_obj, env);
+    net_acceleration =
+        net_acceleration + perturb::earth::calculate_earth_perturbations(sim_obj, env);
+    net_acceleration = net_acceleration + perturb::moon::calculate_moon_perturbations(sim_obj, env);
 
     // Velocity and displacement calculations use Euler–Cromer integration as errors
     // in Euler–Cromer do not grow exponentially thus providing the most stable orbit.
@@ -63,8 +37,6 @@ pub fn apply_perturbations(
     // Update the new values within the simulation object.
     sim_obj.velocity = updated_sim_obj_velocity;
     sim_obj.coords = updated_sim_obj_coords;
-
-    perturbations_out
 }
 
 fn should_simulation_halt(env: &Environment, runtime_params: &input::RuntimeParameters) -> bool {
@@ -115,38 +87,12 @@ pub fn simulate(
         }
 
         // Calculate and apply perturbations for every object
-        let perturbation_map =
-            sim_bodies
-                .par_iter_mut()
-                .map(|sim_obj| -> Option<Vec<PerturbationOut>> {
-                    let perturbations = apply_perturbations(
-                        sim_obj,
-                        &env,
-                        runtime_params.sim_time_step as f64,
-                        runtime_params.write_out_pertub,
-                    );
+        sim_bodies.par_iter_mut().for_each(|sim_obj| {
+            apply_perturbations(sim_obj, &env, runtime_params.sim_time_step as f64);
 
-                    // TODO only call this every so often
-                    env.check_switch_soi(sim_obj);
-
-                    perturbations
-                });
-
-        if runtime_params.write_out_pertub {
-            perturbation_map
-                .collect_vec_list()
-                .iter()
-                .for_each(|result_chunk| {
-                    result_chunk.iter().for_each(|sim_obj_pertubs| {
-                        if let Some(peturbs) = sim_obj_pertubs {
-                            output::write_out_all_perturbations(
-                                peturbs,
-                                output_controller.as_mut(),
-                            );
-                        };
-                    });
-                });
-        }
+            // TODO only call this every so often
+            env.check_switch_soi(sim_obj);
+        });
 
         env.advance_simulation_environment(&runtime_params);
     }

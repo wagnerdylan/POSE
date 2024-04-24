@@ -1,17 +1,12 @@
 use crate::{
     bodies::{common::ecliptic_to_equatorial, sim_object::SimobjT, solar_model::Solarobj},
     environment::Environment,
-    output,
     types::{l2_norm, Array3d},
 };
 
 use super::common::{newton_gravitational_field, newton_gravitational_field_third_body};
 
-fn calculate_earth_atmospheric_drag_perturbation(
-    sim_obj: &SimobjT,
-    env: &Environment,
-    perturbations_out: &mut Option<&mut Vec<output::PerturbationOut>>,
-) -> Array3d {
+fn calculate_earth_atmospheric_drag_perturbation(sim_obj: &SimobjT, env: &Environment) -> Array3d {
     match sim_obj.soi {
         Solarobj::Earth => {}
         _ => return Array3d::default(),
@@ -33,27 +28,11 @@ fn calculate_earth_atmospheric_drag_perturbation(
         * atmos_model_result.rho
         * norm_velocity.powf(2.0);
     let drag_force_vector = -drag_force * (sim_obj.velocity / norm_velocity);
-    let drag_accel = drag_force_vector / sim_obj.mass;
 
-    if let Some(out) = perturbations_out {
-        out.push(output::PerturbationOut {
-            id: sim_obj.id,
-            sim_time: env.get_sim_time(),
-            petrub_type: "drag_earth_nrlmsise00".to_string(),
-            acceleration_x_mpss: drag_accel.x,
-            acceleration_y_mpss: drag_accel.y,
-            acceleration_z_mpss: drag_accel.z,
-        })
-    }
-
-    drag_accel
+    drag_force_vector / sim_obj.mass
 }
 
-fn calculate_earth_gravity_perturbation(
-    sim_obj: &SimobjT,
-    env: &Environment,
-    perturbations_out: &mut Option<&mut Vec<output::PerturbationOut>>,
-) -> Array3d {
+fn calculate_earth_gravity_perturbation(sim_obj: &SimobjT, env: &Environment) -> Array3d {
     let (r_0, r_tb, ob_0) = match sim_obj.soi {
         Solarobj::Sun => (
             env.sun.model.state.coords.current_coords,
@@ -83,27 +62,10 @@ fn calculate_earth_gravity_perturbation(
         newton_gravitational_field(&sim_obj.coords_abs, &r_0, env.earth.attr.mass)
     };
 
-    let accel = ecliptic_to_equatorial(&accel_ecliptic, ob_0);
-
-    if let Some(out) = perturbations_out {
-        out.push(output::PerturbationOut {
-            id: sim_obj.id,
-            sim_time: env.get_sim_time(),
-            petrub_type: "solar_obj_earth".to_string(),
-            acceleration_x_mpss: accel.x,
-            acceleration_y_mpss: accel.y,
-            acceleration_z_mpss: accel.z,
-        })
-    }
-
-    accel
+    ecliptic_to_equatorial(&accel_ecliptic, ob_0)
 }
 
-pub fn calculate_earth_perturbations(
-    sim_obj: &SimobjT,
-    env: &Environment,
-    perturbations_out: &mut Option<&mut Vec<output::PerturbationOut>>,
-) -> Array3d {
-    calculate_earth_gravity_perturbation(sim_obj, env, perturbations_out)
-        + calculate_earth_atmospheric_drag_perturbation(sim_obj, env, perturbations_out)
+pub fn calculate_earth_perturbations(sim_obj: &SimobjT, env: &Environment) -> Array3d {
+    calculate_earth_gravity_perturbation(sim_obj, env)
+        + calculate_earth_atmospheric_drag_perturbation(sim_obj, env)
 }

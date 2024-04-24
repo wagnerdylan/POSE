@@ -1,17 +1,12 @@
 use crate::{
     bodies::{common::ecliptic_to_equatorial, sim_object::SimobjT, solar_model::Solarobj},
     environment::Environment,
-    output,
     types::Array3d,
 };
 
 use super::common::{newton_gravitational_field, newton_gravitational_field_third_body};
 
-fn calculate_solar_gravity_perturbation(
-    sim_obj: &SimobjT,
-    env: &Environment,
-    perturbations_out: &mut Option<&mut Vec<output::PerturbationOut>>,
-) -> Array3d {
+fn calculate_solar_gravity_perturbation(sim_obj: &SimobjT, env: &Environment) -> Array3d {
     let (r_0, r_tb, ob_0) = match sim_obj.soi {
         Solarobj::Sun => (
             env.sun.model.state.coords.current_coords,
@@ -41,20 +36,7 @@ fn calculate_solar_gravity_perturbation(
         newton_gravitational_field(&sim_obj.coords_abs, &r_0, env.sun.attr.mass)
     };
 
-    let accel = ecliptic_to_equatorial(&accel_ecliptic, ob_0);
-
-    if let Some(out) = perturbations_out {
-        out.push(output::PerturbationOut {
-            id: sim_obj.id,
-            sim_time: env.get_sim_time(),
-            petrub_type: "solar_obj_sun".to_string(),
-            acceleration_x_mpss: accel.x,
-            acceleration_y_mpss: accel.y,
-            acceleration_z_mpss: accel.z,
-        })
-    }
-
-    accel
+    ecliptic_to_equatorial(&accel_ecliptic, ob_0)
 }
 
 /// Calculate all solar perturbations on sim_obj
@@ -62,16 +44,9 @@ fn calculate_solar_gravity_perturbation(
 /// ### Arguments
 /// * 'sim_obj' - Simulation object
 /// * 'env' - Simulation environment
-/// * 'perturbations_out' - Array of individual perturbations wrapped in a option.
-///    This array should be appended to if option value is some
-///
 /// ### Returns
 /// Combined perturbations
 ///
-pub fn calculate_solar_perturbations(
-    sim_obj: &SimobjT,
-    env: &Environment,
-    perturbations_out: &mut Option<&mut Vec<output::PerturbationOut>>,
-) -> Array3d {
-    calculate_solar_gravity_perturbation(sim_obj, env, perturbations_out)
+pub fn calculate_solar_perturbations(sim_obj: &SimobjT, env: &Environment) -> Array3d {
+    calculate_solar_gravity_perturbation(sim_obj, env)
 }
