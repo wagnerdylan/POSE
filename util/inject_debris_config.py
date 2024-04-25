@@ -29,20 +29,45 @@ def rand_dim(dim: int, scale: float):
 
     return scaled
 
-def tangent_velocity(c_x, c_y, c_z, alt):
-    velocity = math.sqrt(G*EARTH_MASS / alt)
-
+def calc_perpendicular_vectors(c_x, c_y, c_z):
     r = math.sqrt(c_x**2 + c_y**2 + c_z**2)
     theta = math.acos(c_z/r)
     phi = math.atan2(c_y, c_x)
 
+    k_x = math.sin(theta) * math.cos(phi)
+    k_y = math.sin(theta) * math.sin(phi)
+    k_z = math.cos(theta)
+
     theta += math.pi / 2
 
-    v_x = math.sin(theta) * math.cos(phi) * velocity
-    v_y = math.sin(theta) * math.sin(phi) * velocity
-    v_z = math.cos(theta) * velocity
+    v_x = math.sin(theta) * math.cos(phi)
+    v_y = math.sin(theta) * math.sin(phi)
+    v_z = math.cos(theta)
 
-    return v_x, v_y, v_z
+    return numpy.asarray([k_x, k_y, k_z]), numpy.asarray([v_x, v_y, v_z])
+
+def rotate_vector_about_k(v, k, theta):
+    cos_theta = numpy.cos(theta)
+    sin_theta = numpy.sin(theta)
+    
+    term1 = v * cos_theta
+    term2 = numpy.cross(k, v) * sin_theta
+    term3 = k * numpy.dot(k, v) * (1 - cos_theta)
+    
+    return term1 + term2 + term3
+
+def tangent_velocity(c_x, c_y, c_z, alt):
+    velocity = math.sqrt(G*EARTH_MASS / alt)
+
+    # k pointing up from 0,0,0 toward c_x, c_y, c_z.
+    # v is rotated 90deg from k.
+    k, v = calc_perpendicular_vectors(c_x, c_y, c_z)
+
+    theta = math.pi / 2
+    v_rot = rotate_vector_about_k(v, k, theta)
+    v_rot_vel = v_rot * velocity
+
+    return v_rot_vel[0], v_rot_vel[1], v_rot_vel[2]
 
 def sphere_parameters(num: int, radius_cm: float):
     drag_area = math.pi * (radius_cm/100)**2
@@ -91,6 +116,7 @@ def generate_random_debris(num_debris: int, middle_alt: float) -> List[Dict]:
 with open(args.sim_config, "r") as fd:
     sim_config = json.load(fd)
 
+random.seed(1)
 sim_config["debris"] = generate_random_debris(int(args.num_debris), int(args.middle_alt))
 
 with open(args.sim_config, "w+") as sim_fp:
