@@ -22,6 +22,9 @@ fn calculate_earth_atmospheric_drag_perturbation(
     // return an empty result if sim object earth relative altitude is not within a range which
     // atmospheric drag will be relevant to simulation.
     if !(0.0..=1_000.0 * 1000.0).contains(&sim_obj.coords_fixed.alt) {
+        if let Some(perturb_store) = &mut sim_obj.perturb_store {
+            perturb_store.earth_drag = None;
+        }
         return Array3d::default();
     }
 
