@@ -25,7 +25,7 @@ pub struct SimulationParameters {
         short,
         long,
         help = "simulation duration between output writes. This parameter should be expressed in seconds.",
-        default_value_t = 1.0
+        default_value_t = 0.1
     )]
     pub write_period: f64,
     #[arg(
