@@ -2,6 +2,7 @@ import argparse
 import pandas as pd
 import numpy as np
 import datetime
+import json
 
 prog_description = "Compare simulation output to NASA produced ISS trajectory values posted on https://spotthestation.nasa.gov/trajectory_data.cfm."
 parser = argparse.ArgumentParser(
@@ -15,8 +16,16 @@ parser.add_argument(
     "sim_data",
     help="Filepath to the simulation output file for objects.",
 )
+parser.add_argument(
+    "sim_config",
+    help="Simulation configuration used to generate 'sim_data' simulation output."
+)
 parser.add_argument("output", help="Destination to write resulting table diff to.")
 args = parser.parse_args()
+
+with open(args.sim_config, "r") as fd:
+    sim_config = json.load(fd)
+    sim_start_time = sim_config["date"]
 
 sim_data = pd.read_csv(
     args.sim_data,
@@ -31,7 +40,7 @@ sim_data = pd.read_csv(
     ],
     converters={
         "sim_time": lambda x: (
-            datetime.datetime.fromisoformat("2023-10-23T12:00:00.000")
+            datetime.datetime.fromisoformat(sim_start_time)
             + datetime.timedelta(seconds=round(float(x), 1))
         )
     },
@@ -52,7 +61,7 @@ iss_data = pd.read_csv(
         "z_velocity",
     ],
     converters={
-        "sim_time": lambda x: datetime.datetime.fromisoformat(x),
+        "sim_time": lambda x: datetime.datetime.fromisoformat(x + "Z"),
         "x_coord": conv_to_meters,
         "y_coord": conv_to_meters,
         "z_coord": conv_to_meters,
