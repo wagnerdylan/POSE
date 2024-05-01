@@ -43,6 +43,7 @@ sim_time_max = sim_data["sim_time"].max()
 
 app.layout = dash.html.Center(
     children=[
+        dash.html.H1("POSE Orbit Inspector"),
         dash.html.Div(
             children=[
                 dash.html.Div(
