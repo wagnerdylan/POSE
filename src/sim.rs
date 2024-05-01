@@ -133,8 +133,6 @@ pub fn simulate(
         // Calculate and apply perturbations for every object.
         sim_bodies.par_iter_mut().for_each(|sim_obj| {
             apply_perturbations(sim_obj, &env, runtime_params.sim_time_step as f64);
-
-            // TODO only call this every so often
             env.check_switch_soi(sim_obj);
         });
 
