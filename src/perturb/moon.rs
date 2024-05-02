@@ -11,7 +11,7 @@ use crate::{
 use super::common::{newton_gravitational_field, newton_gravitational_field_third_body};
 
 fn calculate_moon_gravity_perturbation(sim_obj: &mut SimobjT, env: &Environment) -> Array3d {
-    let (r_0, r_tb, ob_0) = match sim_obj.soi {
+    let (r_0, r_tb, ob_0) = match sim_obj.state.soi {
         Solarobj::Sun => (
             env.sun.model.state.coords.current_coords,
             Some(env.moon.model.state.coords.current_coords),
@@ -31,13 +31,13 @@ fn calculate_moon_gravity_perturbation(sim_obj: &mut SimobjT, env: &Environment)
 
     let accel_ecliptic = if r_tb.is_some() {
         newton_gravitational_field_third_body(
-            &sim_obj.coords_abs,
+            &sim_obj.state.coords_abs,
             &r_0,
             &r_tb.unwrap(),
             env.moon.attr.mass,
         )
     } else {
-        newton_gravitational_field(&sim_obj.coords_abs, &r_0, env.moon.attr.mass)
+        newton_gravitational_field(&sim_obj.state.coords_abs, &r_0, env.moon.attr.mass)
     };
 
     let perturb = ecliptic_to_equatorial(&accel_ecliptic, ob_0);

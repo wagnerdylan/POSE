@@ -1,4 +1,5 @@
 use crate::bodies::sim_object::SimobjT;
+use crate::collision::find_collision_set;
 use crate::environment::Environment;
 use crate::perturb;
 use crate::{
@@ -17,9 +18,9 @@ use rayon::prelude::*;
 ///
 pub fn apply_perturbations(sim_obj: &mut SimobjT, env: &Environment, step_time_s: f64) {
     // Update solar ecliptic coordinates for use in perturbation calculations.
-    sim_obj.coords_abs = env.calculate_se_coords(sim_obj);
+    sim_obj.state.coords_abs = env.calculate_se_coords(sim_obj);
     // Update fixed accelerating coordinates if applicable.
-    sim_obj.coords_fixed = env.calculate_fixed_coords(sim_obj);
+    sim_obj.state.coords_fixed = env.calculate_fixed_coords(sim_obj);
 
     let mut net_acceleration = Array3d::default();
     // Calculate the perturbation forces for all planetary objects.
@@ -34,16 +35,16 @@ pub fn apply_perturbations(sim_obj: &mut SimobjT, env: &Environment, step_time_s
     // Calculate the velocity change from net acceleration.
     let velocity_delta = net_acceleration * step_time_s;
     // Calculate new velocity for the given simulation object.
-    let updated_sim_obj_velocity = velocity_delta + sim_obj.velocity;
+    let updated_sim_obj_velocity = velocity_delta + sim_obj.state.velocity;
 
     // Calculate the position change from the updated velocity.
     let position_displacement = updated_sim_obj_velocity * step_time_s;
     // Calculate the new position for the simulation object.
-    let updated_sim_obj_coords = position_displacement + sim_obj.coords;
+    let updated_sim_obj_coords = position_displacement + sim_obj.state.coords;
 
     // Update the new values within the simulation object.
-    sim_obj.velocity = updated_sim_obj_velocity;
-    sim_obj.coords = updated_sim_obj_coords;
+    sim_obj.state.velocity = updated_sim_obj_velocity;
+    sim_obj.state.coords = updated_sim_obj_coords;
 }
 
 /// Simulation halting condition check. Below are the conditions in which trigger simulation halting.
@@ -94,6 +95,52 @@ fn write_out_simulation_results(
     env.get_sim_time()
 }
 
+fn propagate_simulation_objects(
+    env: &Environment,
+    runtime_params: &input::RuntimeParameters,
+    sim_bodies: &mut [SimobjT],
+) {
+    // Calculate and apply perturbations for every object.
+    sim_bodies.par_iter_mut().for_each(|sim_obj| {
+        apply_perturbations(sim_obj, env, runtime_params.sim_time_step as f64);
+        env.check_switch_soi(sim_obj);
+    });
+}
+
+fn run_collision_check(
+    current_env: &Environment,
+    previous_env: &Environment,
+    runtime_params: &input::RuntimeParameters,
+    sim_bodies: &mut [SimobjT],
+) {
+    // Step 01: find the set of overlapping bounding boxes which defines the
+    // the collision set.
+
+    // set_max_index is an index into the sim_bodies array which defines
+    // the collision set from index [0, set_max_index).
+    let set_max_index = find_collision_set(sim_bodies);
+
+    // Step 02: swap object parameters to that of the start of the collision intersection
+    // period.
+
+    // Step 03: propagate simulation and env objects by a single time step.
+
+    // Step 04: check intersections from previous simulation time step to most
+    // recent time step propagation. If intersection results in collision, add
+    // collision information into the list. sim_bodies may also be modified at this point
+    // to reflect the result of the collision. IE. adding space debris into the simulation.
+
+    // Step 05: check to see if object propagation has reached current simulation time.
+    // If not, go back to step 03. If so, proceed to step 06.
+
+    // Step 06: swap object parameters back to original state for return into
+    // main simulation operation.
+}
+
+fn should_run_collision_check(current_env: &Environment, previous_env: &Environment) -> bool {
+    return false;
+}
+
 /// Main simulation loop
 /// Exit from this loop is conditioned from simulation configuration.
 ///
@@ -114,6 +161,7 @@ pub fn simulate(
     runtime_params: input::RuntimeParameters,
 ) {
     let mut last_write = -f64::INFINITY;
+    let mut previous_env = env.clone();
 
     loop {
         // Write out simulation data at the start of the simulation loop as to capture
@@ -125,17 +173,23 @@ pub fn simulate(
             &runtime_params,
             last_write,
         );
+
+        // Main simulation object propagation.
+        propagate_simulation_objects(&env, &runtime_params, &mut sim_bodies);
+
+        // Check for simulation object collisions. Normal simulation state is restored after this
+        // logic is run.
+        if should_run_collision_check(&env, &previous_env) {
+            run_collision_check(&env, &previous_env, &runtime_params, &mut sim_bodies);
+            previous_env = env.clone();
+        }
+
+        // End of simulation step calculations, prepare for next simulation step.
+        env.advance_simulation_environment(&runtime_params);
+
         // Simulation halting condition. Return from function "simulate" will end simulation execution.
         if should_simulation_halt(&env, &runtime_params) {
             return;
         }
-
-        // Calculate and apply perturbations for every object.
-        sim_bodies.par_iter_mut().for_each(|sim_obj| {
-            apply_perturbations(sim_obj, &env, runtime_params.sim_time_step as f64);
-            env.check_switch_soi(sim_obj);
-        });
-
-        env.advance_simulation_environment(&runtime_params);
     }
 }

@@ -14,14 +14,14 @@ fn calculate_earth_atmospheric_drag_perturbation(
     sim_obj: &mut SimobjT,
     env: &Environment,
 ) -> Array3d {
-    match sim_obj.soi {
+    match sim_obj.state.soi {
         Solarobj::Earth => {}
         _ => return Array3d::default(),
     }
 
     // return an empty result if sim object earth relative altitude is not within a range which
     // atmospheric drag will be relevant to simulation.
-    if !(0.0..=1_000.0 * 1000.0).contains(&sim_obj.coords_fixed.alt) {
+    if !(0.0..=1_000.0 * 1000.0).contains(&sim_obj.state.coords_fixed.alt) {
         if let Some(perturb_store) = &mut sim_obj.perturb_store {
             perturb_store.earth_drag = None;
         }
@@ -30,14 +30,14 @@ fn calculate_earth_atmospheric_drag_perturbation(
 
     let atmos_model_result = env
         .earth
-        .nrlmsise00_model(env.current_time, &sim_obj.coords_fixed);
-    let norm_velocity = l2_norm(&sim_obj.velocity);
+        .nrlmsise00_model(env.current_time, &sim_obj.state.coords_fixed);
+    let norm_velocity = l2_norm(&sim_obj.state.velocity);
     let drag_force = 0.5
         * sim_obj.drag_coeff
         * sim_obj.drag_area
         * atmos_model_result.rho
         * norm_velocity.powf(2.0);
-    let drag_force_vector = -drag_force * (sim_obj.velocity / norm_velocity);
+    let drag_force_vector = -drag_force * (sim_obj.state.velocity / norm_velocity);
 
     let perturb = drag_force_vector / sim_obj.mass;
 
@@ -54,7 +54,7 @@ fn calculate_earth_atmospheric_drag_perturbation(
 }
 
 fn calculate_earth_gravity_perturbation(sim_obj: &mut SimobjT, env: &Environment) -> Array3d {
-    let (r_0, r_tb, ob_0) = match sim_obj.soi {
+    let (r_0, r_tb, ob_0) = match sim_obj.state.soi {
         Solarobj::Sun => (
             env.sun.model.state.coords.current_coords,
             Some(env.earth.model.state.coords.current_coords),
@@ -74,13 +74,13 @@ fn calculate_earth_gravity_perturbation(sim_obj: &mut SimobjT, env: &Environment
 
     let accel_ecliptic = if r_tb.is_some() {
         newton_gravitational_field_third_body(
-            &sim_obj.coords_abs,
+            &sim_obj.state.coords_abs,
             &r_0,
             &r_tb.unwrap(),
             env.earth.attr.mass,
         )
     } else {
-        newton_gravitational_field(&sim_obj.coords_abs, &r_0, env.earth.attr.mass)
+        newton_gravitational_field(&sim_obj.state.coords_abs, &r_0, env.earth.attr.mass)
     };
 
     let perturb = ecliptic_to_equatorial(&accel_ecliptic, ob_0);

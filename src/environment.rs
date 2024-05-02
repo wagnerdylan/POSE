@@ -20,6 +20,7 @@ const AU_METER: f64 = 1.496e+11;
 const EARTH_HILL_SPHERE_RADIUS: f64 = 0.01001 * AU_METER;
 const LUNAR_HILL_SPHERE_RADIUS: f64 = 58050000.0;
 
+#[derive(Clone)]
 pub struct Environment {
     pub start_time: chrono::DateTime<Utc>, // Start time of the simulation as a constant.
     sim_time_s: f64,                       // Simulation time in seconds.
@@ -139,19 +140,19 @@ impl Environment {
     // Calculate solar ecliptic coordinates for a given simulation object from
     // the soi inertial reference frame.
     pub fn calculate_se_coords(&self, sim_obj: &SimobjT) -> Array3d {
-        match sim_obj.soi {
-            Solarobj::Sun => self.sun.model.state.coords.current_coords + sim_obj.coords,
+        match sim_obj.state.soi {
+            Solarobj::Sun => self.sun.model.state.coords.current_coords + sim_obj.state.coords,
             Solarobj::Earth => {
                 self.earth.model.state.coords.current_coords
                     + bodies::common::equatorial_to_ecliptic(
-                        &sim_obj.coords,
+                        &sim_obj.state.coords,
                         self.earth.attr.obliquity,
                     )
             }
             Solarobj::Moon => {
                 self.moon.model.state.coords.current_coords
                     + bodies::common::equatorial_to_ecliptic(
-                        &sim_obj.coords,
+                        &sim_obj.state.coords,
                         self.moon.attr.obliquity,
                     )
             }
@@ -159,11 +160,11 @@ impl Environment {
     }
 
     pub fn calculate_fixed_coords(&self, sim_obj: &SimobjT) -> LLH {
-        match sim_obj.soi {
+        match sim_obj.state.soi {
             Solarobj::Sun => LLH::default(),
             Solarobj::Earth => self
                 .earth
-                .eci2geo(&sim_obj.coords, days_since_j2000(&self.current_time)),
+                .eci2geo(&sim_obj.state.coords, days_since_j2000(&self.current_time)),
             Solarobj::Moon => LLH::default(),
         }
     }
@@ -199,15 +200,17 @@ impl Environment {
     }
 
     fn check_is_within_earth_hill_sphere(&self, sim_obj: &mut SimobjT) -> bool {
-        let distance_to_earth =
-            types::l2_norm(&(sim_obj.coords_abs - self.earth.model.state.coords.current_coords));
+        let distance_to_earth = types::l2_norm(
+            &(sim_obj.state.coords_abs - self.earth.model.state.coords.current_coords),
+        );
 
         distance_to_earth <= EARTH_HILL_SPHERE_RADIUS
     }
 
     fn check_is_within_lunar_hill_sphere(&self, sim_obj: &mut SimobjT) -> bool {
-        let distance_to_moon =
-            types::l2_norm(&(sim_obj.coords_abs - self.moon.model.state.coords.current_coords));
+        let distance_to_moon = types::l2_norm(
+            &(sim_obj.state.coords_abs - self.moon.model.state.coords.current_coords),
+        );
 
         distance_to_moon <= LUNAR_HILL_SPHERE_RADIUS
     }
@@ -218,9 +221,9 @@ impl Environment {
         soi_coords: &Array3d,
         soi_velocity: &Array3d,
     ) {
-        sim_obj.coords = sim_obj.coords - soi_coords;
-        sim_obj.velocity = sim_obj.velocity - soi_velocity;
-        sim_obj.soi = to_soi;
+        sim_obj.state.coords = sim_obj.state.coords - soi_coords;
+        sim_obj.state.velocity = sim_obj.state.velocity - soi_velocity;
+        sim_obj.state.soi = to_soi;
     }
 
     fn switch_out_soi(
@@ -229,9 +232,9 @@ impl Environment {
         soi_coords: &Array3d,
         soi_velocity: &Array3d,
     ) {
-        sim_obj.coords = sim_obj.coords + soi_coords;
-        sim_obj.velocity = sim_obj.velocity + soi_velocity;
-        sim_obj.soi = to_soi;
+        sim_obj.state.coords = sim_obj.state.coords + soi_coords;
+        sim_obj.state.velocity = sim_obj.state.velocity + soi_velocity;
+        sim_obj.state.soi = to_soi;
     }
 
     /// If the simulation object is within the hill sphere radius of the solar object in question, switch to that SOI.
@@ -240,7 +243,7 @@ impl Environment {
     /// * 'sim_object' - The simulation object to be checked
     ///
     pub fn check_switch_soi(&self, sim_obj: &mut SimobjT) {
-        match sim_obj.soi {
+        match sim_obj.state.soi {
             Solarobj::Sun => {
                 if self.check_is_within_earth_hill_sphere(sim_obj) {
                     Self::switch_in_soi(
@@ -255,7 +258,7 @@ impl Environment {
             }
             Solarobj::Earth => {
                 let sim_distance_to_earth = types::l2_norm(
-                    &(sim_obj.coords_abs - self.earth.model.state.coords.current_coords),
+                    &(sim_obj.state.coords_abs - self.earth.model.state.coords.current_coords),
                 );
 
                 // If the simulation object is outside of the earth hill sphere set the soi to solar
@@ -280,7 +283,7 @@ impl Environment {
             }
             Solarobj::Moon => {
                 let sim_distance_to_moon = types::l2_norm(
-                    &(sim_obj.coords_abs - self.moon.model.state.coords.current_coords),
+                    &(sim_obj.state.coords_abs - self.moon.model.state.coords.current_coords),
                 );
 
                 // If the simulation object is outside the lunar hill sphere set the soi to earth

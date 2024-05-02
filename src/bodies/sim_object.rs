@@ -81,39 +81,48 @@ impl PerturbationStore {
     }
 }
 
+#[derive(Serialize, Deserialize, Default)]
+pub struct SimObjTState {
+    pub soi: Solarobj,
+    pub coords: Array3d,
+    pub velocity: Array3d,
+    #[serde(skip_deserializing)]
+    pub coords_abs: Array3d,
+    #[serde(skip_deserializing)]
+    pub coords_abs_previous: Array3d,
+    #[serde(skip_deserializing)]
+    pub coords_fixed: LLH,
+}
+
 #[derive(Serialize, Deserialize)]
 pub struct SimobjT {
     #[serde(skip_deserializing)]
     pub id: u32,
     #[serde(skip_deserializing)]
     pub sim_object_type: SimObjectType,
-    #[serde(skip_deserializing)]
-    pub coords_abs: Array3d,
-    #[serde(skip_deserializing)]
-    pub coords_fixed: LLH,
     #[serde(skip_deserializing, skip_serializing)]
     pub perturb_store: Option<PerturbationStore>,
     pub name: String,
-    pub soi: Solarobj,
-    pub coords: Array3d,
-    pub velocity: Array3d,
     pub drag_area: f64,
     pub drag_coeff: f64,
     pub mass: f64,
+    pub state: SimObjTState,
+    #[serde(skip_deserializing, skip_serializing)]
+    pub saved_state: SimObjTState,
 }
 
 impl SimobjT {
     pub fn to_output_form(&self, sim_time: f64) -> output::SimulationObjectParameters {
-        let abs_coords = &self.coords_abs;
-        let fixed_coords = &self.coords_fixed;
-        let coords = &self.coords;
-        let velocity = &self.velocity;
+        let abs_coords = &self.state.coords_abs;
+        let fixed_coords = &self.state.coords_fixed;
+        let coords = &self.state.coords;
+        let velocity = &self.state.velocity;
 
         output::SimulationObjectParameters {
             id: self.id,
             sim_time,
             name: self.name.clone(),
-            soi: self.soi.to_string(),
+            soi: self.state.soi.to_string(),
             x_abs_coord: abs_coords.x,
             y_abs_coord: abs_coords.y,
             z_abs_coord: abs_coords.z,
