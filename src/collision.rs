@@ -147,7 +147,9 @@ mod tests {
         types::{Array3d, LLH},
     };
 
-    use super::{mark_overlapping_groups_axis, mark_overlapping_groups_axis_slice};
+    use super::{
+        find_collision_set, mark_overlapping_groups_axis, mark_overlapping_groups_axis_slice,
+    };
 
     fn make_test_sim_bodies() -> Vec<SimobjT> {
         let mut sim_obj_template = SimobjT {
@@ -190,15 +192,17 @@ mod tests {
         sim_obj_template.name = "test_object_2".to_string();
         sim_obj_template.state.coords_abs.x = -160.0;
         sim_obj_template.saved_state.coords_abs.x = 90.0;
-        sim_obj_template.state.coords_abs.y = 300.0;
-        sim_obj_template.saved_state.coords_abs.y = 150.0;
+        sim_obj_template.state.coords_abs.y = 0.0;
+        sim_obj_template.saved_state.coords_abs.y = 1.0;
         sim_bodies.push(sim_obj_template.clone());
 
         sim_obj_template.name = "test_object_3".to_string();
         sim_obj_template.state.coords_abs.x = 250.0;
         sim_obj_template.saved_state.coords_abs.x = 90.0;
-        sim_obj_template.state.coords_abs.y = 0.0;
-        sim_obj_template.saved_state.coords_abs.y = 1.0;
+        sim_obj_template.state.coords_abs.y = 300.0;
+        sim_obj_template.saved_state.coords_abs.y = 150.0;
+        sim_obj_template.state.coords_abs.z = 350.0;
+        sim_obj_template.saved_state.coords_abs.z = 200.0;
         sim_bodies.push(sim_obj_template.clone());
 
         sim_obj_template.name = "test_object_4".to_string();
@@ -286,5 +290,16 @@ mod tests {
     }
 
     #[test]
-    fn find_collision_set() {}
+    fn test_find_collision_set() {
+        let mut sim_bodies = make_test_sim_bodies();
+        let overlap_found = find_collision_set(&mut sim_bodies);
+
+        assert!(overlap_found);
+        assert!(sim_bodies.get(0).unwrap().overlap_marker.is_none());
+        assert!(sim_bodies.get(1).unwrap().overlap_marker.is_none());
+        assert!(sim_bodies.get(2).unwrap().overlap_marker.is_none());
+        assert!(sim_bodies.get(3).unwrap().overlap_marker.is_none());
+        assert_eq!(sim_bodies.get(4).unwrap().overlap_marker.unwrap(), 1);
+        assert_eq!(sim_bodies.get(5).unwrap().overlap_marker.unwrap(), 1);
+    }
 }
