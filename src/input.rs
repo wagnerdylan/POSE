@@ -37,9 +37,15 @@ pub struct SimulationParameters {
     #[arg(
         long,
         help = "value to be used as the update period for solar objects.",
-        default_value_t = 3600.0
+        default_value_t = 60.0 * 60.0
     )]
     pub sim_solar_step: f32,
+    #[arg(
+        long,
+        help = "period which to run collision detection.",
+        default_value_t = 10.0 * 60.0
+    )]
+    pub collision_check_period: f32,
     #[arg(
         long,
         help = "flag used to indicate perturbations should be written out.",
@@ -90,6 +96,7 @@ pub struct RuntimeParameters {
     pub write_period: f64,
     pub sim_time_step: f32,
     pub sim_solar_step: f32,
+    pub collision_check_period: f32,
 }
 
 pub fn collect_simulation_inputs(
@@ -122,6 +129,7 @@ pub fn collect_simulation_inputs(
         write_period: sim_params.write_period,
         sim_time_step: sim_params.sim_time_step,
         sim_solar_step: sim_params.sim_solar_step,
+        collision_check_period: sim_params.collision_check_period,
     };
 
     let env_init_data = EnvInitData {

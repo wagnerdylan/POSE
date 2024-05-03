@@ -116,10 +116,10 @@ fn run_collision_check(
     // Step 01: find the set of overlapping bounding boxes which defines the
     // the collision set.
 
-    // set_max_index is an index into the sim_bodies array which defines
-    // the collision set from index [0, set_max_index).
-    let set_max_index = find_collision_set(sim_bodies);
-
+    // Return early if no collision sets exist.
+    if !find_collision_set(sim_bodies) {
+        return;
+    }
     // Step 02: swap object parameters to that of the start of the collision intersection
     // period.
 
@@ -137,8 +137,13 @@ fn run_collision_check(
     // main simulation operation.
 }
 
-fn should_run_collision_check(current_env: &Environment, previous_env: &Environment) -> bool {
-    return false;
+fn should_run_collision_check(
+    current_env: &Environment,
+    previous_env: &Environment,
+    runtime_params: &input::RuntimeParameters,
+) -> bool {
+    (current_env.get_sim_time() - previous_env.get_sim_time())
+        >= runtime_params.collision_check_period as f64
 }
 
 /// Main simulation loop
@@ -179,7 +184,7 @@ pub fn simulate(
 
         // Check for simulation object collisions. Normal simulation state is restored after this
         // logic is run.
-        if should_run_collision_check(&env, &previous_env) {
+        if should_run_collision_check(&env, &previous_env, &runtime_params) {
             run_collision_check(&env, &previous_env, &runtime_params, &mut sim_bodies);
             previous_env = env.clone();
         }

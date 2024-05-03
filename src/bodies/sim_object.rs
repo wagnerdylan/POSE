@@ -81,7 +81,7 @@ impl PerturbationStore {
     }
 }
 
-#[derive(Serialize, Deserialize, Default)]
+#[derive(Serialize, Deserialize, Default, Clone)]
 pub struct SimObjTState {
     pub soi: Solarobj,
     pub coords: Array3d,
@@ -109,6 +109,8 @@ pub struct SimobjT {
     pub state: SimObjTState,
     #[serde(skip_deserializing, skip_serializing)]
     pub saved_state: SimObjTState,
+    #[serde(skip_deserializing, skip_serializing)]
+    pub overlap_marker: Option<usize>,
 }
 
 impl SimobjT {
