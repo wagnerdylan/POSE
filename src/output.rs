@@ -20,12 +20,12 @@ pub struct SimulationObjectParameters {
     pub sim_time: f64, // Simulation time
     pub name: String,
     pub soi: String, // Sphere of influence in string form
-    pub x_abs_coord: f64,
-    /// Absolute coordinate of object in the x axis
-    pub y_abs_coord: f64,
-    /// Absolute coordinate of object in the y axis
-    pub z_abs_coord: f64,
-    /// Absolute coordinate of object in the z axis
+    /// Heliocentric coordinate of object in the x axis
+    pub x_coord_helio: f64,
+    /// Heliocentric coordinate of object in the y axis
+    pub y_coord_helio: f64,
+    /// Heliocentric coordinate of object in the z axis
+    pub z_coord_helio: f64,
     pub lat: f64,
     pub long: f64,
     pub altitude: f64,

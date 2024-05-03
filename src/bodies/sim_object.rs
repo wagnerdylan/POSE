@@ -88,9 +88,9 @@ pub struct SimObjTState {
     pub coords: Array3d,
     pub velocity: Array3d,
     #[serde(skip_deserializing)]
-    pub coords_abs: Array3d,
+    pub coord_helio: Array3d,
     #[serde(skip_deserializing)]
-    pub coords_abs_previous: Array3d,
+    pub coord_helio_previous: Array3d,
     #[serde(skip_deserializing)]
     pub coords_fixed: LLH,
 }
@@ -116,7 +116,7 @@ pub struct SimobjT {
 
 impl SimobjT {
     pub fn to_output_form(&self, sim_time: f64) -> output::SimulationObjectParameters {
-        let abs_coords = &self.state.coords_abs;
+        let coord_helio = &self.state.coord_helio;
         let fixed_coords = &self.state.coords_fixed;
         let coords = &self.state.coords;
         let velocity = &self.state.velocity;
@@ -126,9 +126,9 @@ impl SimobjT {
             sim_time,
             name: self.name.clone(),
             soi: self.state.soi.to_string(),
-            x_abs_coord: abs_coords.x,
-            y_abs_coord: abs_coords.y,
-            z_abs_coord: abs_coords.z,
+            x_coord_helio: coord_helio.x,
+            y_coord_helio: coord_helio.y,
+            z_coord_helio: coord_helio.z,
             lat: fixed_coords.lat,
             long: fixed_coords.long,
             altitude: fixed_coords.alt,

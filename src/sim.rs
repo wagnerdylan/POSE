@@ -18,7 +18,7 @@ use rayon::prelude::*;
 ///
 pub fn apply_perturbations(sim_obj: &mut SimobjT, env: &Environment, step_time_s: f64) {
     // Update solar ecliptic coordinates for use in perturbation calculations.
-    sim_obj.state.coords_abs = env.calculate_se_coords(sim_obj);
+    sim_obj.state.coord_helio = env.calculate_se_coords(sim_obj);
     // Update fixed accelerating coordinates if applicable.
     sim_obj.state.coords_fixed = env.calculate_fixed_coords(sim_obj);
 

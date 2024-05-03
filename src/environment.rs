@@ -201,7 +201,7 @@ impl Environment {
 
     fn check_is_within_earth_hill_sphere(&self, sim_obj: &mut SimobjT) -> bool {
         let distance_to_earth = types::l2_norm(
-            &(sim_obj.state.coords_abs - self.earth.model.state.coords.current_coords),
+            &(sim_obj.state.coord_helio - self.earth.model.state.coords.current_coords),
         );
 
         distance_to_earth <= EARTH_HILL_SPHERE_RADIUS
@@ -209,7 +209,7 @@ impl Environment {
 
     fn check_is_within_lunar_hill_sphere(&self, sim_obj: &mut SimobjT) -> bool {
         let distance_to_moon = types::l2_norm(
-            &(sim_obj.state.coords_abs - self.moon.model.state.coords.current_coords),
+            &(sim_obj.state.coord_helio - self.moon.model.state.coords.current_coords),
         );
 
         distance_to_moon <= LUNAR_HILL_SPHERE_RADIUS
@@ -258,7 +258,7 @@ impl Environment {
             }
             Solarobj::Earth => {
                 let sim_distance_to_earth = types::l2_norm(
-                    &(sim_obj.state.coords_abs - self.earth.model.state.coords.current_coords),
+                    &(sim_obj.state.coord_helio - self.earth.model.state.coords.current_coords),
                 );
 
                 // If the simulation object is outside of the earth hill sphere set the soi to solar
@@ -283,7 +283,7 @@ impl Environment {
             }
             Solarobj::Moon => {
                 let sim_distance_to_moon = types::l2_norm(
-                    &(sim_obj.state.coords_abs - self.moon.model.state.coords.current_coords),
+                    &(sim_obj.state.coord_helio - self.moon.model.state.coords.current_coords),
                 );
 
                 // If the simulation object is outside the lunar hill sphere set the soi to earth

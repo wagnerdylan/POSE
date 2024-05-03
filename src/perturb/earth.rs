@@ -74,13 +74,13 @@ fn calculate_earth_gravity_perturbation(sim_obj: &mut SimobjT, env: &Environment
 
     let accel_ecliptic = if r_tb.is_some() {
         newton_gravitational_field_third_body(
-            &sim_obj.state.coords_abs,
+            &sim_obj.state.coord_helio,
             &r_0,
             &r_tb.unwrap(),
             env.earth.attr.mass,
         )
     } else {
-        newton_gravitational_field(&sim_obj.state.coords_abs, &r_0, env.earth.attr.mass)
+        newton_gravitational_field(&sim_obj.state.coord_helio, &r_0, env.earth.attr.mass)
     };
 
     let perturb = ecliptic_to_equatorial(&accel_ecliptic, ob_0);
