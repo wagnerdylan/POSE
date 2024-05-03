@@ -5,13 +5,14 @@ use crate::{
 };
 use serde::{Deserialize, Serialize};
 
-#[derive(Serialize, Default)]
+#[derive(Serialize, Default, Clone)]
 pub enum SimObjectType {
     #[default]
     Spacecraft,
     Debris,
 }
 
+#[derive(Clone)]
 pub struct PerturbationDefinition {
     pub perturb_name: String,
     pub x_accel: f64,
@@ -19,7 +20,7 @@ pub struct PerturbationDefinition {
     pub z_accel: f64,
 }
 
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub struct PerturbationStore {
     pub sun_gravity: Option<PerturbationDefinition>,
     pub earth_gravity: Option<PerturbationDefinition>,
@@ -94,7 +95,7 @@ pub struct SimObjTState {
     pub coords_fixed: LLH,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct SimobjT {
     #[serde(skip_deserializing)]
     pub id: u32,
