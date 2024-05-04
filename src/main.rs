@@ -37,7 +37,7 @@ mod types;
 ///
 fn init_simulation_objects(env: &environment::Environment, sim_objs: &mut Vec<SimobjT>) {
     for sim_obj in sim_objs {
-        sim_obj.state.coord_helio = env.calculate_se_coords(sim_obj);
+        sim_obj.state.coord_helio = env.calculate_helio_coords(sim_obj);
         sim_obj.state.coords_fixed = env.calculate_fixed_coords(sim_obj);
         sim_obj.saved_state = sim_obj.state.clone();
     }

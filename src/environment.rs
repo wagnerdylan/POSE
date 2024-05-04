@@ -139,7 +139,7 @@ impl Environment {
 
     // Calculate solar ecliptic coordinates for a given simulation object from
     // the soi inertial reference frame.
-    pub fn calculate_se_coords(&self, sim_obj: &SimobjT) -> Array3d {
+    pub fn calculate_helio_coords(&self, sim_obj: &SimobjT) -> Array3d {
         match sim_obj.state.soi {
             Solarobj::Sun => self.sun.model.state.coords.current_coords + sim_obj.state.coords,
             Solarobj::Earth => {
@@ -215,28 +215,6 @@ impl Environment {
         distance_to_moon <= LUNAR_HILL_SPHERE_RADIUS
     }
 
-    fn switch_in_soi(
-        sim_obj: &mut SimobjT,
-        to_soi: Solarobj,
-        soi_coords: &Array3d,
-        soi_velocity: &Array3d,
-    ) {
-        sim_obj.state.coords = sim_obj.state.coords - soi_coords;
-        sim_obj.state.velocity = sim_obj.state.velocity - soi_velocity;
-        sim_obj.state.soi = to_soi;
-    }
-
-    fn switch_out_soi(
-        sim_obj: &mut SimobjT,
-        to_soi: Solarobj,
-        soi_coords: &Array3d,
-        soi_velocity: &Array3d,
-    ) {
-        sim_obj.state.coords = sim_obj.state.coords + soi_coords;
-        sim_obj.state.velocity = sim_obj.state.velocity + soi_velocity;
-        sim_obj.state.soi = to_soi;
-    }
-
     /// If the simulation object is within the hill sphere radius of the solar object in question, switch to that SOI.
     ///
     /// ### Argument
@@ -244,14 +222,19 @@ impl Environment {
     ///
     pub fn check_switch_soi(&self, sim_obj: &mut SimobjT) {
         match sim_obj.state.soi {
+            // SWitch from Solar SOI into Earth SOI.
+            // TODO: Calculations below have not been verified as accurate.
             Solarobj::Sun => {
                 if self.check_is_within_earth_hill_sphere(sim_obj) {
-                    Self::switch_in_soi(
-                        sim_obj,
-                        Solarobj::Earth,
-                        &self.earth.model.state.coords.current_coords,
-                        &self.earth.model.state.velocity,
+                    sim_obj.state.coords = bodies::common::ecliptic_to_equatorial(
+                        &(sim_obj.state.coord_helio - self.earth.model.state.coords.current_coords),
+                        self.earth.attr.obliquity,
                     );
+                    sim_obj.state.velocity = bodies::common::ecliptic_to_equatorial(
+                        &(sim_obj.state.velocity - self.earth.model.state.velocity),
+                        self.earth.attr.obliquity,
+                    );
+                    sim_obj.state.soi = Solarobj::Earth;
                     // Recursive call to handle bodies within switched soi
                     self.check_switch_soi(sim_obj);
                 }
@@ -261,24 +244,33 @@ impl Environment {
                     &(sim_obj.state.coord_helio - self.earth.model.state.coords.current_coords),
                 );
 
-                // If the simulation object is outside of the earth hill sphere set the soi to solar
+                // Switch from Earth SOI into the Solar SOI.
+                // Calculations below are verified as accurate.
                 if sim_distance_to_earth > EARTH_HILL_SPHERE_RADIUS {
-                    Self::switch_out_soi(
-                        sim_obj,
-                        Solarobj::Sun,
-                        &(self.earth.model.state.coords.current_coords
-                            - self.sun.model.state.coords.current_coords),
-                        &self.earth.model.state.velocity,
-                    );
-                    // Recursive call to handle bodies within switched soi, used for overshoots/teleportation
+                    sim_obj.state.coords =
+                        sim_obj.state.coord_helio - self.sun.model.state.coords.current_coords;
+                    sim_obj.state.velocity = bodies::common::equatorial_to_ecliptic(
+                        &sim_obj.state.velocity,
+                        self.earth.attr.obliquity,
+                    ) + self.earth.model.state.velocity;
+                    sim_obj.state.soi = Solarobj::Sun;
                     self.check_switch_soi(sim_obj);
+                // Switch from Earth SOI into the Lunar SOI.
+                // TODO: Calculations below have not been verified as accurate.
                 } else if self.check_is_within_lunar_hill_sphere(sim_obj) {
-                    Self::switch_in_soi(
-                        sim_obj,
-                        Solarobj::Moon,
-                        &self.moon.model.state.coords.current_coords,
-                        &self.moon.model.state.velocity,
-                    )
+                    sim_obj.state.coords = bodies::common::ecliptic_to_equatorial(
+                        &(sim_obj.state.coord_helio - self.moon.model.state.coords.current_coords),
+                        self.moon.attr.obliquity,
+                    );
+                    let helio_velocity = bodies::common::equatorial_to_ecliptic(
+                        &sim_obj.state.velocity,
+                        self.earth.attr.obliquity,
+                    ) + self.earth.model.state.velocity;
+                    sim_obj.state.velocity = bodies::common::ecliptic_to_equatorial(
+                        &(helio_velocity - self.moon.model.state.velocity),
+                        self.moon.attr.obliquity,
+                    );
+                    sim_obj.state.soi = Solarobj::Moon;
                 }
             }
             Solarobj::Moon => {
@@ -286,16 +278,21 @@ impl Environment {
                     &(sim_obj.state.coord_helio - self.moon.model.state.coords.current_coords),
                 );
 
-                // If the simulation object is outside the lunar hill sphere set the soi to earth
+                // Switch from Lunar SOI into Earth SOI.
+                // TODO: Calculations below have not been verified as accurate.
                 if sim_distance_to_moon > LUNAR_HILL_SPHERE_RADIUS {
-                    Self::switch_out_soi(
-                        sim_obj,
-                        Solarobj::Earth,
-                        &(self.moon.model.state.coords.current_coords
-                            - self.earth.model.state.coords.current_coords),
-                        &self.moon.model.state.velocity,
+                    sim_obj.state.coords = bodies::common::ecliptic_to_equatorial(
+                        &(sim_obj.state.coord_helio - self.earth.model.state.coords.current_coords),
+                        self.earth.attr.obliquity,
                     );
-                    // Recursive call to handle bodies within switched soi, used for overshoots/teleportation
+                    let helio_velocity = bodies::common::equatorial_to_ecliptic(
+                        &sim_obj.state.velocity,
+                        self.moon.attr.obliquity,
+                    ) + self.moon.model.state.velocity;
+                    sim_obj.state.velocity = bodies::common::ecliptic_to_equatorial(
+                        &(helio_velocity - self.earth.model.state.velocity),
+                        self.earth.attr.obliquity,
+                    );
                     self.check_switch_soi(sim_obj);
                 }
                 // Moon has no solar bodies orbiting it

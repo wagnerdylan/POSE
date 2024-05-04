@@ -17,11 +17,6 @@ use rayon::prelude::*;
 /// * `step_time_s` - Simulation step-time value.
 ///
 pub fn apply_perturbations(sim_obj: &mut SimobjT, env: &Environment, step_time_s: f64) {
-    // Update solar ecliptic coordinates for use in perturbation calculations.
-    sim_obj.state.coord_helio = env.calculate_se_coords(sim_obj);
-    // Update fixed accelerating coordinates if applicable.
-    sim_obj.state.coords_fixed = env.calculate_fixed_coords(sim_obj);
-
     let mut net_acceleration = Array3d::default();
     // Calculate the perturbation forces for all planetary objects.
     net_acceleration = net_acceleration + perturb::sol::calculate_solar_perturbations(sim_obj, env);
@@ -102,8 +97,13 @@ fn propagate_simulation_objects(
 ) {
     // Calculate and apply perturbations for every object.
     sim_bodies.par_iter_mut().for_each(|sim_obj| {
-        apply_perturbations(sim_obj, env, runtime_params.sim_time_step as f64);
+        // Update solar ecliptic coordinates for use in perturbation calculations.
+        sim_obj.state.coord_helio = env.calculate_helio_coords(sim_obj);
+        // Update fixed accelerating coordinates if applicable.
+        sim_obj.state.coords_fixed = env.calculate_fixed_coords(sim_obj);
+
         env.check_switch_soi(sim_obj);
+        apply_perturbations(sim_obj, env, runtime_params.sim_time_step as f64);
     });
 }
 
