@@ -23,7 +23,8 @@ const LUNAR_HILL_SPHERE_RADIUS: f64 = 58050000.0;
 #[derive(Clone)]
 pub struct Environment {
     pub start_time: chrono::DateTime<Utc>, // Start time of the simulation as a constant.
-    sim_time_s: f64,                       // Simulation time in seconds.
+    pub sim_time_s: f64,                   // Simulation time in seconds.
+    pub step_count: u64,                   // Number of simulation steps run.
     pub current_time: chrono::DateTime<Utc>, // Current time of simulation in UTC.
     last_day_update_s: f64,                // Last time a hard simulation model update was done.
     future_day_update_s: f64, // Next time a hard simulation model update should be done.
@@ -117,6 +118,7 @@ impl Environment {
     pub fn advance_simulation_environment(&mut self, runtime_params: &RuntimeParameters) {
         // Advance the simulation environment by configured simulation time step
         self.sim_time_s += runtime_params.sim_time_step as f64;
+        self.step_count += 1;
         self.current_time =
             self.start_time + Duration::milliseconds((self.sim_time_s * 1000.0) as i64);
         // Perform a hard update if advanced current simulation time would exceed future simulation time
@@ -179,6 +181,7 @@ impl Environment {
         let mut env = Environment {
             start_time: runtime_params.date,
             sim_time_s: 0f64,
+            step_count: 0u64,
             current_time: runtime_params.date,
             last_day_update_s: 0f64,
             future_day_update_s: runtime_params.sim_solar_step as f64,
@@ -192,11 +195,6 @@ impl Environment {
         env.earth.set_query_space_weather_index(runtime_params.date);
 
         env
-    }
-
-    /// Get simulation time in seconds
-    pub fn get_sim_time(&self) -> f64 {
-        self.sim_time_s
     }
 
     fn check_is_within_earth_hill_sphere(&self, sim_obj: &mut SimobjT) -> bool {

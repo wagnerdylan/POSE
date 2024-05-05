@@ -143,7 +143,7 @@ pub fn write_out_all_object_parameters(
     output_controller: &mut dyn SimulationOutput,
 ) {
     for sim_obj in sim_objects {
-        output_controller.write_out_object_parameters(sim_obj.to_output_form(env.get_sim_time()));
+        output_controller.write_out_object_parameters(sim_obj.to_output_form(env.sim_time_s));
     }
 }
 
@@ -154,7 +154,7 @@ pub fn write_out_all_object_perturbations(
 ) {
     for sim_obj in sim_objects {
         if let Some(store) = &sim_obj.perturb_store {
-            for perturb_out in store.to_output_form(sim_obj.id, &sim_obj.name, env.get_sim_time()) {
+            for perturb_out in store.to_output_form(sim_obj.id, &sim_obj.name, env.sim_time_s) {
                 output_controller.write_out_object_perturbation(perturb_out);
             }
         }

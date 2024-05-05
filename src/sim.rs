@@ -1,5 +1,7 @@
+use std::mem::swap;
+
 use crate::bodies::sim_object::SimobjT;
-use crate::collision::find_collision_set;
+use crate::collision::{collision_model, find_body_intersections, find_collision_set};
 use crate::environment::Environment;
 use crate::perturb;
 use crate::{
@@ -53,7 +55,7 @@ pub fn apply_perturbations(sim_obj: &mut SimobjT, env: &Environment, step_time_s
 ///     Boolean value indicating if the simulation should halt.
 ///
 fn should_simulation_halt(env: &Environment, runtime_params: &input::RuntimeParameters) -> bool {
-    env.start_time + chrono::Duration::milliseconds((env.get_sim_time() * 1000.0) as i64)
+    env.start_time + chrono::Duration::milliseconds((env.sim_time_s * 1000.0) as i64)
         >= runtime_params.halt_date
 }
 
@@ -78,7 +80,7 @@ fn write_out_simulation_results(
     runtime_params: &input::RuntimeParameters,
     last_write: f64,
 ) -> f64 {
-    if env.get_sim_time() < last_write + runtime_params.write_period - 0.001 {
+    if env.sim_time_s < last_write + runtime_params.write_period - 0.001 {
         return last_write;
     }
 
@@ -87,7 +89,7 @@ fn write_out_simulation_results(
     output::write_out_all_solar_objects(env, output_controller.as_mut());
 
     // Return current sim time to allow for rated output.
-    env.get_sim_time()
+    env.sim_time_s
 }
 
 fn propagate_simulation_objects(
@@ -97,6 +99,8 @@ fn propagate_simulation_objects(
 ) {
     // Calculate and apply perturbations for every object.
     sim_bodies.par_iter_mut().for_each(|sim_obj| {
+        // Save previous solar ecliptic coordinates for intersection calculations.
+        sim_obj.state.coord_helio_previous = sim_obj.state.coord_helio;
         // Update solar ecliptic coordinates for use in perturbation calculations.
         sim_obj.state.coord_helio = env.calculate_helio_coords(sim_obj);
         // Update fixed accelerating coordinates if applicable.
@@ -109,9 +113,9 @@ fn propagate_simulation_objects(
 
 fn run_collision_check(
     current_env: &Environment,
-    previous_env: &Environment,
+    previous_env: &mut Environment,
     runtime_params: &input::RuntimeParameters,
-    sim_bodies: &mut [SimobjT],
+    sim_bodies: &mut Vec<SimobjT>,
 ) {
     // Step 01: find the set of overlapping bounding boxes which defines the
     // the collision set.
@@ -120,21 +124,52 @@ fn run_collision_check(
     if !find_collision_set(sim_bodies) {
         return;
     }
-    // Step 02: swap object parameters to that of the start of the collision intersection
-    // period.
+    // Step 02: swap object parameters to that of the start of the collision intersection period.
+    sim_bodies
+        .iter_mut()
+        .for_each(|a| swap(&mut a.state, &mut a.saved_state));
 
-    // Step 03: propagate simulation and env objects by a single time step.
+    while previous_env.step_count < current_env.step_count {
+        let intersect_gen = sim_bodies
+            .par_chunk_by_mut(|a, b| a.overlap_marker == b.overlap_marker)
+            .flat_map(|slice| -> Vec<SimobjT> {
+                // Skip over non-overlap group.
+                if slice.first().unwrap().overlap_marker.is_none() {
+                    return Vec::new();
+                }
+                // Step 03: propagate simulation objects by a single time step.
+                propagate_simulation_objects(previous_env, runtime_params, slice);
 
-    // Step 04: check intersections from previous simulation time step to most
-    // recent time step propagation. If intersection results in collision, add
-    // collision information into the list. sim_bodies may also be modified at this point
-    // to reflect the result of the collision. IE. adding space debris into the simulation.
+                // Step 04: check intersections from previous simulation time step to most
+                // recent time step propagation. If intersection results in collision, add
+                // collision information into the list. sim_bodies may also be modified at this point
+                // to reflect the result of the collision. IE. adding space debris into the simulation.
+                let intersections = find_body_intersections(slice);
+                intersections
+                    .iter()
+                    .flat_map(|intersect_idx| -> Vec<SimobjT> {
+                        collision_model(
+                            slice.get(intersect_idx.0).unwrap(),
+                            slice.get(intersect_idx.1).unwrap(),
+                        )
+                    })
+                    .collect()
+            });
+        // Append new generated simulation bodies into the main vector and re-sort to
+        // chunk up simulation bodies by overlap_marker.
+        let mut collision_gen: Vec<SimobjT> = intersect_gen.collect();
+        if !collision_gen.is_empty() {
+            sim_bodies.append(&mut collision_gen);
+            sim_bodies.par_sort_unstable_by(|a, b| a.overlap_marker.cmp(&b.overlap_marker));
+        }
 
-    // Step 05: check to see if object propagation has reached current simulation time.
-    // If not, go back to step 03. If so, proceed to step 06.
+        // End of simulation step calculations, prepare for next simulation step.
+        previous_env.advance_simulation_environment(runtime_params);
+    }
 
-    // Step 06: swap object parameters back to original state for return into
-    // main simulation operation.
+    sim_bodies
+        .iter_mut()
+        .for_each(|a| swap(&mut a.state, &mut a.saved_state));
 }
 
 fn should_run_collision_check(
@@ -142,7 +177,7 @@ fn should_run_collision_check(
     previous_env: &Environment,
     runtime_params: &input::RuntimeParameters,
 ) -> bool {
-    (current_env.get_sim_time() - previous_env.get_sim_time())
+    (current_env.sim_time_s - previous_env.sim_time_s)
         >= runtime_params.collision_check_period as f64
 }
 
@@ -185,8 +220,11 @@ pub fn simulate(
         // Check for simulation object collisions. Normal simulation state is restored after this
         // logic is run.
         if should_run_collision_check(&env, &previous_env, &runtime_params) {
-            run_collision_check(&env, &previous_env, &runtime_params, &mut sim_bodies);
+            run_collision_check(&env, &mut previous_env, &runtime_params, &mut sim_bodies);
             previous_env = env.clone();
+            sim_bodies
+                .iter_mut()
+                .for_each(|a| a.saved_state = a.state.clone());
         }
 
         // End of simulation step calculations, prepare for next simulation step.

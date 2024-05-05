@@ -43,7 +43,7 @@ pub struct SimulationParameters {
     #[arg(
         long,
         help = "period which to run collision detection.",
-        default_value_t = 10.0 * 60.0
+        default_value_t = 1.0 * 60.0
     )]
     pub collision_check_period: f32,
     #[arg(

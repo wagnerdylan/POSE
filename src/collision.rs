@@ -137,6 +137,14 @@ pub fn find_collision_set(sim_bodies: &mut [SimobjT]) -> bool {
     true
 }
 
+pub fn find_body_intersections(sim_bodies: &[SimobjT]) -> Vec<(usize, usize)> {
+    Vec::new()
+}
+
+pub fn collision_model(sim_body_a: &SimobjT, sim_body_b: &SimobjT) -> Vec<SimobjT> {
+    Vec::new()
+}
+
 #[cfg(test)]
 mod tests {
     use crate::{
