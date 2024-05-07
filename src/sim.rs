@@ -1,7 +1,9 @@
 use std::mem::swap;
 
 use crate::bodies::sim_object::SimobjT;
-use crate::collision::{collision_model, find_body_intersections, find_collision_set};
+use crate::collision::{
+    collision_model, find_body_intersections, find_collision_set, CollisionResult,
+};
 use crate::environment::Environment;
 use crate::perturb;
 use crate::{
@@ -10,6 +12,7 @@ use crate::{
     types::Array3d,
 };
 use rayon::prelude::*;
+use std::slice;
 
 /// Main function for calculating simulation object propagations.
 ///
@@ -116,6 +119,7 @@ fn run_collision_check(
     previous_env: &mut Environment,
     runtime_params: &input::RuntimeParameters,
     sim_bodies: &mut Vec<SimobjT>,
+    output_controller: &mut Box<dyn output::SimulationOutput>,
 ) {
     // Step 01: find the set of overlapping bounding boxes which defines the
     // the collision set.
@@ -129,10 +133,13 @@ fn run_collision_check(
         .iter_mut()
         .for_each(|a| swap(&mut a.state, &mut a.saved_state));
 
+    let max_id = sim_bodies.iter().max_by(|a, b| a.id.cmp(&b.id)).unwrap().id;
+    let mut new_max_id = max_id;
+
     while previous_env.step_count < current_env.step_count {
         let intersect_gen = sim_bodies
             .par_chunk_by_mut(|a, b| a.overlap_marker == b.overlap_marker)
-            .flat_map(|slice| -> Vec<SimobjT> {
+            .flat_map(|slice| -> Vec<CollisionResult> {
                 // Skip over non-overlap group.
                 if slice.first().unwrap().overlap_marker.is_none() {
                     return Vec::new();
@@ -144,10 +151,10 @@ fn run_collision_check(
                 // recent time step propagation. If intersection results in collision, add
                 // collision information into the list. sim_bodies may also be modified at this point
                 // to reflect the result of the collision. IE. adding space debris into the simulation.
-                let intersections = find_body_intersections(slice);
+                let intersections = find_body_intersections(slice, previous_env.step_count);
                 intersections
                     .iter()
-                    .flat_map(|intersect_idx| -> Vec<SimobjT> {
+                    .map(|intersect_idx| -> CollisionResult {
                         collision_model(
                             slice.get(intersect_idx.0).unwrap(),
                             slice.get(intersect_idx.1).unwrap(),
@@ -155,12 +162,42 @@ fn run_collision_check(
                     })
                     .collect()
             });
-        // Append new generated simulation bodies into the main vector and re-sort to
-        // chunk up simulation bodies by overlap_marker.
-        let mut collision_gen: Vec<SimobjT> = intersect_gen.collect();
+
+        let collision_gen: Vec<CollisionResult> = intersect_gen.collect();
         if !collision_gen.is_empty() {
-            sim_bodies.append(&mut collision_gen);
+            // Include newly generated simulation objects into the main sim_bodies array.
+            let mut new_bodies: Vec<SimobjT> = collision_gen
+                .iter()
+                .flat_map(|a| a.new_sim_bodies.to_owned())
+                .collect();
+            // Id values must not be duplicated and ascend without sequence gaps.
+            new_bodies.iter_mut().for_each(|a| {
+                new_max_id += 1;
+                a.id = new_max_id
+            });
+            sim_bodies.append(&mut new_bodies);
+            // Sort by overlap marker here so generated bodies are placed within the objects which
+            // collided to generated them.
             sim_bodies.par_sort_unstable_by(|a, b| a.overlap_marker.cmp(&b.overlap_marker));
+
+            // TODO Write out collision result as simulation output.
+        }
+
+        // Write out simulation results for new objects to populate simulation
+        // output so no gaps in information occur. Write output at the simulation
+        // step rate.
+        if new_max_id != max_id {
+            for sim_body in sim_bodies.iter() {
+                if sim_body.id > max_id {
+                    write_out_simulation_results(
+                        slice::from_ref(sim_body),
+                        previous_env,
+                        output_controller,
+                        runtime_params,
+                        -f64::INFINITY,
+                    );
+                }
+            }
         }
 
         // End of simulation step calculations, prepare for next simulation step.
@@ -220,7 +257,16 @@ pub fn simulate(
         // Check for simulation object collisions. Normal simulation state is restored after this
         // logic is run.
         if should_run_collision_check(&env, &previous_env, &runtime_params) {
-            run_collision_check(&env, &mut previous_env, &runtime_params, &mut sim_bodies);
+            run_collision_check(
+                &env,
+                &mut previous_env,
+                &runtime_params,
+                &mut sim_bodies,
+                &mut output_controller,
+            );
+            // Remove all bodies marked for deletion at this point. The step count contained within
+            // the marked_for_deletion_on_step member is irreverent at this point as it is always in the past.
+            sim_bodies.retain(|a| a.marked_for_deletion_on_step.is_none());
             previous_env = env.clone();
             sim_bodies
                 .iter_mut()

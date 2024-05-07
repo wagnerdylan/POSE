@@ -112,6 +112,8 @@ pub struct SimobjT {
     pub saved_state: SimObjTState,
     #[serde(skip_deserializing, skip_serializing)]
     pub overlap_marker: Option<usize>,
+    #[serde(skip_deserializing, skip_serializing)]
+    pub marked_for_deletion_on_step: Option<u64>,
 }
 
 impl SimobjT {

@@ -2,6 +2,10 @@ use rayon::slice::ParallelSliceMut;
 
 use crate::bodies::sim_object::SimobjT;
 
+pub struct CollisionResult {
+    pub new_sim_bodies: Vec<SimobjT>,
+}
+
 fn mark_overlapping_groups_axis_slice<F>(
     sim_bodies: &mut [SimobjT],
     mut group_cnt: usize,
@@ -137,12 +141,18 @@ pub fn find_collision_set(sim_bodies: &mut [SimobjT]) -> bool {
     true
 }
 
-pub fn find_body_intersections(sim_bodies: &[SimobjT]) -> Vec<(usize, usize)> {
+pub fn find_body_intersections(
+    sim_bodies: &[SimobjT],
+    current_step_count: u64,
+) -> Vec<(usize, usize)> {
+    // TODO if an object is marked for deletion, do not check for intersections.
     Vec::new()
 }
 
-pub fn collision_model(sim_body_a: &SimobjT, sim_body_b: &SimobjT) -> Vec<SimobjT> {
-    Vec::new()
+pub fn collision_model(sim_body_a: &SimobjT, sim_body_b: &SimobjT) -> CollisionResult {
+    CollisionResult {
+        new_sim_bodies: Vec::new(),
+    }
 }
 
 #[cfg(test)]
@@ -193,6 +203,7 @@ mod tests {
                 coords_fixed: LLH::default(),
             },
             overlap_marker: None,
+            marked_for_deletion_on_step: None,
         };
         let mut sim_bodies = Vec::new();
         sim_bodies.push(sim_obj_template.clone());
