@@ -104,13 +104,14 @@ fn propagate_simulation_objects(
     sim_bodies.par_iter_mut().for_each(|sim_obj| {
         // Save previous solar ecliptic coordinates for intersection calculations.
         sim_obj.state.coord_helio_previous = sim_obj.state.coord_helio;
+
+        env.check_switch_soi(sim_obj);
+        apply_perturbations(sim_obj, env, runtime_params.sim_time_step as f64);
+
         // Update solar ecliptic coordinates for use in perturbation calculations.
         sim_obj.state.coord_helio = env.calculate_helio_coords(sim_obj);
         // Update fixed accelerating coordinates if applicable.
         sim_obj.state.coords_fixed = env.calculate_fixed_coords(sim_obj);
-
-        env.check_switch_soi(sim_obj);
-        apply_perturbations(sim_obj, env, runtime_params.sim_time_step as f64);
     });
 }
 
@@ -156,6 +157,7 @@ fn run_collision_check(
                     .iter()
                     .map(|intersect_idx| -> CollisionResult {
                         collision_model(
+                            previous_env,
                             slice.get(intersect_idx.0).unwrap(),
                             slice.get(intersect_idx.1).unwrap(),
                         )

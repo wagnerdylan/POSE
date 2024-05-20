@@ -1,6 +1,10 @@
 use rayon::slice::ParallelSliceMut;
 
-use crate::bodies::sim_object::SimobjT;
+use crate::{
+    bodies::sim_object::SimobjT,
+    environment::Environment,
+    types::{self, Array3d},
+};
 
 pub struct CollisionResult {
     pub new_sim_bodies: Vec<SimobjT>,
@@ -141,15 +145,71 @@ pub fn find_collision_set(sim_bodies: &mut [SimobjT]) -> bool {
     true
 }
 
+fn line_line_n_point_dist(l1: (&Array3d, &Array3d), l2: (&Array3d, &Array3d)) -> f64 {
+    let mut min_dist = f64::INFINITY;
+    let interp_num = 6;
+    for i in 0..=interp_num {
+        let interp_point = (1.0 / interp_num as f64) * i as f64;
+        let p13 = ((1f64 - interp_point) * l1.0) + interp_point * l1.1;
+        let p21 = ((1f64 - interp_point) * l2.0) + interp_point * l2.1;
+
+        min_dist = types::l2_norm(&(p13 - p21)).min(min_dist);
+    }
+    min_dist
+}
+
 pub fn find_body_intersections(
     sim_bodies: &[SimobjT],
     current_step_count: u64,
 ) -> Vec<(usize, usize)> {
-    // TODO if an object is marked for deletion, do not check for intersections.
-    Vec::new()
+    let mut result_vec = Vec::new();
+    for i in 0..sim_bodies.len() {
+        for j in i + 1..sim_bodies.len() {
+            // Skip over simulation bodies which have been deleted on current step.
+            let body_a = sim_bodies.get(i).unwrap();
+            let body_b = sim_bodies.get(j).unwrap();
+            if let Some(body_stop) = body_a.marked_for_deletion_on_step {
+                if body_stop >= current_step_count {
+                    continue;
+                }
+            }
+            if let Some(body_stop) = body_b.marked_for_deletion_on_step {
+                if body_stop >= current_step_count {
+                    continue;
+                }
+            }
+            // Calculate the shortest line between two trajectory lines of body_a and body_b.
+            let intersect_line_dist = line_line_n_point_dist(
+                (
+                    &body_a.state.coord_helio_previous,
+                    &body_a.state.coord_helio,
+                ),
+                (
+                    &body_b.state.coord_helio_previous,
+                    &body_b.state.coord_helio,
+                ),
+            );
+            // TODO remove this hardcode in favor of a geometric intersect calculation.
+            if intersect_line_dist < 10.0 {
+                result_vec.push((i, j));
+            }
+        }
+    }
+    result_vec
 }
 
-pub fn collision_model(sim_body_a: &SimobjT, sim_body_b: &SimobjT) -> CollisionResult {
+pub fn collision_model(env: &Environment, body_a: &SimobjT, body_b: &SimobjT) -> CollisionResult {
+    println!(
+        "Collision ({}): {} {}, dist: {}, {:?} {:?}, {:?} {:?}",
+        env.sim_time_s,
+        body_a.name,
+        body_b.name,
+        types::l2_norm(&(body_b.state.coord_helio - body_a.state.coord_helio)),
+        body_a.state.coord_helio_previous,
+        body_a.state.coord_helio,
+        body_b.state.coord_helio_previous,
+        body_b.state.coord_helio
+    );
     CollisionResult {
         new_sim_bodies: Vec::new(),
     }
