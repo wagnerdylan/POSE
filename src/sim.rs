@@ -160,6 +160,7 @@ fn run_collision_check(
                             previous_env,
                             slice.get(intersect_idx.0).unwrap(),
                             slice.get(intersect_idx.1).unwrap(),
+                            intersect_idx.2,
                         )
                     })
                     .collect()

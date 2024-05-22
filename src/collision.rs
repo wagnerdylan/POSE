@@ -147,21 +147,50 @@ pub fn find_collision_set(sim_bodies: &mut [SimobjT]) -> bool {
 
 fn line_line_n_point_dist(l1: (&Array3d, &Array3d), l2: (&Array3d, &Array3d)) -> f64 {
     let mut min_dist = f64::INFINITY;
+    let mut min_interp_point = f64::INFINITY;
     let interp_num = 6;
     for i in 0..=interp_num {
         let interp_point = (1.0 / interp_num as f64) * i as f64;
-        let p13 = ((1f64 - interp_point) * l1.0) + interp_point * l1.1;
-        let p21 = ((1f64 - interp_point) * l2.0) + interp_point * l2.1;
+        let p12 = ((1f64 - interp_point) * l1.0) + interp_point * l1.1;
+        let p34 = ((1f64 - interp_point) * l2.0) + interp_point * l2.1;
 
-        min_dist = types::l2_norm(&(p13 - p21)).min(min_dist);
+        let dist = types::l2_norm(&(p34 - p12));
+        if dist < min_dist {
+            min_dist = dist;
+            min_interp_point = interp_point;
+        }
     }
-    min_dist
+
+    if types::l2_norm(&(l1.0 - l1.1)) < 1.0 || types::l2_norm(&(l2.0 - l2.1)) < 1.0 {
+        return min_dist;
+    }
+
+    let p12_min = ((1f64 - min_interp_point) * l1.0) + min_interp_point * l1.1;
+    let p34_min = ((1f64 - min_interp_point) * l2.0) + min_interp_point * l2.1;
+    let mut left_dist_min = f64::INFINITY;
+    let mut right_dist_min = f64::INFINITY;
+
+    if min_interp_point > 0.0 + f64::EPSILON {
+        let left_interp_point = min_interp_point - (1.0 / interp_num as f64);
+        let p12_left = ((1f64 - left_interp_point) * l1.0) + left_interp_point * l1.1;
+        let p34_left = ((1f64 - left_interp_point) * l2.0) + left_interp_point * l2.1;
+        left_dist_min = line_line_n_point_dist((&p12_left, &p12_min), (&p34_left, &p34_min));
+    }
+
+    if min_interp_point < 1.0 - f64::EPSILON {
+        let right_interp_point = min_interp_point + (1.0 / interp_num as f64);
+        let p12_right = ((1f64 - right_interp_point) * l1.0) + right_interp_point * l1.1;
+        let p34_right = ((1f64 - right_interp_point) * l2.0) + right_interp_point * l2.1;
+        right_dist_min = line_line_n_point_dist((&p12_min, &p12_right), (&p34_min, &p34_right));
+    }
+
+    min_dist.min(left_dist_min).min(right_dist_min)
 }
 
 pub fn find_body_intersections(
     sim_bodies: &[SimobjT],
     current_step_count: u64,
-) -> Vec<(usize, usize)> {
+) -> Vec<(usize, usize, f64)> {
     let mut result_vec = Vec::new();
     for i in 0..sim_bodies.len() {
         for j in i + 1..sim_bodies.len() {
@@ -191,20 +220,25 @@ pub fn find_body_intersections(
             );
             // TODO remove this hardcode in favor of a geometric intersect calculation.
             if intersect_line_dist < 10.0 {
-                result_vec.push((i, j));
+                result_vec.push((i, j, intersect_line_dist));
             }
         }
     }
     result_vec
 }
 
-pub fn collision_model(env: &Environment, body_a: &SimobjT, body_b: &SimobjT) -> CollisionResult {
+pub fn collision_model(
+    env: &Environment,
+    body_a: &SimobjT,
+    body_b: &SimobjT,
+    min_dist: f64,
+) -> CollisionResult {
     println!(
         "Collision ({}): {} {}, dist: {}, {:?} {:?}, {:?} {:?}",
         env.sim_time_s,
         body_a.name,
         body_b.name,
-        types::l2_norm(&(body_b.state.coord_helio - body_a.state.coord_helio)),
+        min_dist,
         body_a.state.coord_helio_previous,
         body_a.state.coord_helio,
         body_b.state.coord_helio_previous,
