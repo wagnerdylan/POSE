@@ -126,7 +126,7 @@ fn run_collision_check(
     // the collision set.
 
     // Return early if no collision sets exist.
-    if !find_collision_set(sim_bodies) {
+    if !find_collision_set(sim_bodies, runtime_params.check_only_satellite_collisions) {
         return;
     }
     // Step 02: swap object parameters to that of the start of the collision intersection period.
@@ -155,12 +155,12 @@ fn run_collision_check(
                 let intersections = find_body_intersections(slice, previous_env.step_count);
                 intersections
                     .iter()
-                    .map(|intersect_idx| -> CollisionResult {
+                    .map(|intersect_result| -> CollisionResult {
                         collision_model(
                             previous_env,
-                            slice.get(intersect_idx.0).unwrap(),
-                            slice.get(intersect_idx.1).unwrap(),
-                            intersect_idx.2,
+                            slice.get(intersect_result.body_a_idx).unwrap(),
+                            slice.get(intersect_result.body_b_idx).unwrap(),
+                            intersect_result,
                         )
                     })
                     .collect()

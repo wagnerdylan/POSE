@@ -1,10 +1,20 @@
+use std::collections::HashSet;
+
 use rayon::slice::ParallelSliceMut;
 
 use crate::{
-    bodies::sim_object::SimobjT,
+    bodies::sim_object::{SimObjectType, SimobjT},
     environment::Environment,
     types::{self, Array3d},
 };
+
+pub struct IntersectionResult {
+    pub body_a_idx: usize,
+    pub body_b_idx: usize,
+    pub body_a_intersect_coord: Array3d,
+    pub body_b_intersect_coord: Array3d,
+    pub intersect_dist: f64,
+}
 
 pub struct CollisionResult {
     pub new_sim_bodies: Vec<SimobjT>,
@@ -95,7 +105,41 @@ where
     num_groups
 }
 
-pub fn find_collision_set(sim_bodies: &mut [SimobjT]) -> bool {
+fn keep_only_satellite_intersection_groups(sim_bodies: &mut [SimobjT]) {
+    let mut sat_group_nums = HashSet::new();
+    for slice in sim_bodies.chunk_by_mut(|a, b| a.overlap_marker == b.overlap_marker) {
+        // Skip over non-overlap group.
+        if slice.first().unwrap().overlap_marker.is_none() {
+            continue;
+        }
+
+        for object in slice {
+            if let SimObjectType::Spacecraft = object.sim_object_type {
+                // Unwrap is okay here as only populated overlap markers are allowed at this point.
+                sat_group_nums.insert(object.overlap_marker.unwrap());
+                break;
+            }
+        }
+    }
+
+    for slice in sim_bodies.chunk_by_mut(|a, b| a.overlap_marker == b.overlap_marker) {
+        // Skip over non-overlap group.
+        if slice.first().unwrap().overlap_marker.is_none() {
+            continue;
+        }
+
+        if sat_group_nums.contains(&slice.first().unwrap().overlap_marker.unwrap()) {
+            continue;
+        }
+
+        slice.iter_mut().for_each(|x| x.overlap_marker = None);
+    }
+
+    // Resort sim_bodies to move newly de-marked overlap groups into the "None" group.
+    sim_bodies.par_sort_unstable_by(|a, b| a.overlap_marker.cmp(&b.overlap_marker));
+}
+
+pub fn find_collision_set(sim_bodies: &mut [SimobjT], check_only_satellites: bool) -> bool {
     // Place all objects within the same marker group initially (1) as the set has yet
     // to be reduced into discrete groups.
     sim_bodies
@@ -138,6 +182,10 @@ pub fn find_collision_set(sim_bodies: &mut [SimobjT]) -> bool {
         return false;
     }
 
+    if check_only_satellites {
+        keep_only_satellite_intersection_groups(sim_bodies);
+    }
+
     // At this point the vector of simulation bodies are chunked into a group which does
     // not overlap and groups of overlapping bounding boxes numbered 1,2,3,4...
     // These groups flat within the array sorted by numbering. Groups may be pulled out
@@ -145,9 +193,15 @@ pub fn find_collision_set(sim_bodies: &mut [SimobjT]) -> bool {
     true
 }
 
-fn line_line_n_point_dist(l1: (&Array3d, &Array3d), l2: (&Array3d, &Array3d)) -> f64 {
+fn line_line_n_point_dist(
+    l1: (&Array3d, &Array3d),
+    l2: (&Array3d, &Array3d),
+) -> (f64, Array3d, Array3d) {
     let mut min_dist = f64::INFINITY;
     let mut min_interp_point = f64::INFINITY;
+    let mut min_p12 = Array3d::default();
+    let mut min_p34 = Array3d::default();
+
     let interp_num = 6;
     for i in 0..=interp_num {
         let interp_point = (1.0 / interp_num as f64) * i as f64;
@@ -158,17 +212,19 @@ fn line_line_n_point_dist(l1: (&Array3d, &Array3d), l2: (&Array3d, &Array3d)) ->
         if dist < min_dist {
             min_dist = dist;
             min_interp_point = interp_point;
+            min_p12 = p12;
+            min_p34 = p34;
         }
     }
 
     if types::l2_norm(&(l1.0 - l1.1)) < 1.0 || types::l2_norm(&(l2.0 - l2.1)) < 1.0 {
-        return min_dist;
+        return (min_dist, min_p12, min_p34);
     }
 
     let p12_min = ((1f64 - min_interp_point) * l1.0) + min_interp_point * l1.1;
     let p34_min = ((1f64 - min_interp_point) * l2.0) + min_interp_point * l2.1;
-    let mut left_dist_min = f64::INFINITY;
-    let mut right_dist_min = f64::INFINITY;
+    let mut left_dist_min = (f64::INFINITY, Array3d::default(), Array3d::default());
+    let mut right_dist_min = (f64::INFINITY, Array3d::default(), Array3d::default());
 
     if min_interp_point > 0.0 + f64::EPSILON {
         let left_interp_point = min_interp_point - (1.0 / interp_num as f64);
@@ -184,13 +240,19 @@ fn line_line_n_point_dist(l1: (&Array3d, &Array3d), l2: (&Array3d, &Array3d)) ->
         right_dist_min = line_line_n_point_dist((&p12_min, &p12_right), (&p34_min, &p34_right));
     }
 
-    min_dist.min(left_dist_min).min(right_dist_min)
+    if min_dist < left_dist_min.0 && min_dist < right_dist_min.0 {
+        (min_dist, min_p12, min_p34)
+    } else if left_dist_min.0 < min_dist && left_dist_min.0 < right_dist_min.0 {
+        left_dist_min
+    } else {
+        right_dist_min
+    }
 }
 
 pub fn find_body_intersections(
     sim_bodies: &[SimobjT],
     current_step_count: u64,
-) -> Vec<(usize, usize, f64)> {
+) -> Vec<IntersectionResult> {
     let mut result_vec = Vec::new();
     for i in 0..sim_bodies.len() {
         for j in i + 1..sim_bodies.len() {
@@ -208,7 +270,7 @@ pub fn find_body_intersections(
                 }
             }
             // Calculate the shortest line between two trajectory lines of body_a and body_b.
-            let intersect_line_dist = line_line_n_point_dist(
+            let intersect_line = line_line_n_point_dist(
                 (
                     &body_a.state.coord_helio_previous,
                     &body_a.state.coord_helio,
@@ -219,8 +281,14 @@ pub fn find_body_intersections(
                 ),
             );
             // TODO remove this hardcode in favor of a geometric intersect calculation.
-            if intersect_line_dist < 10.0 {
-                result_vec.push((i, j, intersect_line_dist));
+            if intersect_line.0 < 10.0 {
+                result_vec.push(IntersectionResult {
+                    body_a_idx: i,
+                    body_b_idx: j,
+                    body_a_intersect_coord: intersect_line.1,
+                    body_b_intersect_coord: intersect_line.2,
+                    intersect_dist: intersect_line.0,
+                });
             }
         }
     }
@@ -231,18 +299,16 @@ pub fn collision_model(
     env: &Environment,
     body_a: &SimobjT,
     body_b: &SimobjT,
-    min_dist: f64,
+    intersect_info: &IntersectionResult,
 ) -> CollisionResult {
     println!(
-        "Collision ({}): {} {}, dist: {}, {:?} {:?}, {:?} {:?}",
+        "Collision ({}): {} {}, dist: {}, {:?} {:?}",
         env.sim_time_s,
         body_a.name,
         body_b.name,
-        min_dist,
-        body_a.state.coord_helio_previous,
-        body_a.state.coord_helio,
-        body_b.state.coord_helio_previous,
-        body_b.state.coord_helio
+        intersect_info.intersect_dist,
+        intersect_info.body_a_intersect_coord,
+        intersect_info.body_b_intersect_coord
     );
     CollisionResult {
         new_sim_bodies: Vec::new(),
@@ -405,7 +471,7 @@ mod tests {
     #[test]
     fn test_find_collision_set() {
         let mut sim_bodies = make_test_sim_bodies();
-        let overlap_found = find_collision_set(&mut sim_bodies);
+        let overlap_found = find_collision_set(&mut sim_bodies, false);
 
         assert!(overlap_found);
         assert!(sim_bodies.get(0).unwrap().overlap_marker.is_none());

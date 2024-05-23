@@ -52,6 +52,12 @@ pub struct SimulationParameters {
         default_value_t = false
     )]
     pub write_perturbations: bool,
+    #[arg(
+        long,
+        help = "used to indicate that debris should also be checked for collisions in addition to satellites.",
+        default_value_t = false
+    )]
+    pub include_debris_collision: bool,
 }
 
 #[derive(Deserialize, Clone, Default, Debug)]
@@ -97,6 +103,7 @@ pub struct RuntimeParameters {
     pub sim_time_step: f32,
     pub sim_solar_step: f32,
     pub collision_check_period: f32,
+    pub check_only_satellite_collisions: bool,
 }
 
 pub fn collect_simulation_inputs(
@@ -130,6 +137,7 @@ pub fn collect_simulation_inputs(
         sim_time_step: sim_params.sim_time_step,
         sim_solar_step: sim_params.sim_solar_step,
         collision_check_period: sim_params.collision_check_period,
+        check_only_satellite_collisions: !sim_params.include_debris_collision,
     };
 
     let env_init_data = EnvInitData {
