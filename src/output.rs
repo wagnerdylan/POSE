@@ -48,12 +48,32 @@ pub struct SimulationObjectPerturbationOut {
     pub z_accel: f64,
 }
 
+#[derive(Debug, Serialize)]
+pub struct CollisionInfoOut {
+    pub body_a_id: u32,
+    pub body_b_id: u32,
+    pub body_a_name: String,
+    pub body_b_name: String,
+    pub sim_time: f64,
+    pub intercept_distance: f64,
+    pub relative_velocity: f64,
+    pub body_a_x_coord_helio: f64,
+    pub body_a_y_coord_helio: f64,
+    pub body_a_z_coord_helio: f64,
+    pub body_b_x_coord_helio: f64,
+    pub body_b_y_coord_helio: f64,
+    pub body_b_z_coord_helio: f64,
+    pub generated_bodies_id: String,
+}
+
 pub trait SimulationOutput {
     fn write_out_object_parameters(&mut self, object_params: SimulationObjectParameters);
 
     fn write_out_object_perturbation(&mut self, perturb_object: SimulationObjectPerturbationOut);
 
     fn write_out_solar_object(&mut self, solar_object: SolarObjectOut);
+
+    fn write_out_collision_info(&mut self, collision_info: CollisionInfoOut);
 }
 
 pub mod csv_output {
@@ -66,6 +86,7 @@ pub mod csv_output {
         object_parameters_writer: csv::Writer<fs::File>,
         object_perturbation_writer: csv::Writer<fs::File>,
         solar_object_writer: csv::Writer<fs::File>,
+        collision_info_writer: csv::Writer<fs::File>,
     }
 
     impl CSVController {
@@ -88,6 +109,10 @@ pub mod csv_output {
                 .unwrap(),
                 solar_object_writer: csv::Writer::from_path(
                     full_dirpath.join("pose_solar_objects.csv"),
+                )
+                .unwrap(),
+                collision_info_writer: csv::Writer::from_path(
+                    full_dirpath.join("pose_collision_info.csv"),
                 )
                 .unwrap(),
             }
@@ -124,6 +149,13 @@ pub mod csv_output {
             );
             // Treat as critical error.
             self.object_perturbation_writer.flush().unwrap();
+        }
+
+        fn write_out_collision_info(&mut self, collision_info: super::CollisionInfoOut) {
+            self.collision_info_writer
+                .serialize(collision_info)
+                .expect("Failed to write out collision information to the corresponding csv file.");
+            self.collision_info_writer.flush().unwrap();
         }
     }
 }

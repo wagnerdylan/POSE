@@ -5,6 +5,7 @@ use rayon::slice::ParallelSliceMut;
 use crate::{
     bodies::sim_object::{SimObjectType, SimobjT},
     environment::Environment,
+    output::{self, CollisionInfoOut},
     types::{self, Array3d},
 };
 
@@ -17,7 +18,43 @@ pub struct IntersectionResult {
 }
 
 pub struct CollisionResult {
+    pub body_a_id: u32,
+    pub body_b_id: u32,
+    pub body_a_name: String,
+    pub body_b_name: String,
+    pub body_a_coord_helio: Array3d,
+    pub body_b_coord_helio: Array3d,
+    pub sim_time: f64,
+    pub intercept_distance: f64,
+    pub relative_velocity: f64,
     pub new_sim_bodies: Vec<SimobjT>,
+}
+
+impl CollisionResult {
+    pub fn to_output_form(&self, new_bodies: &[SimobjT]) -> output::CollisionInfoOut {
+        let mut bodies_ids = Vec::new();
+        for body in new_bodies {
+            bodies_ids.push(body.id.to_string());
+        }
+        let bodies_id_str = bodies_ids.join(" ");
+
+        CollisionInfoOut {
+            body_a_id: self.body_a_id,
+            body_b_id: self.body_b_id,
+            body_a_name: self.body_a_name.clone(),
+            body_b_name: self.body_b_name.clone(),
+            sim_time: self.sim_time,
+            intercept_distance: self.intercept_distance,
+            relative_velocity: self.relative_velocity,
+            body_a_x_coord_helio: self.body_a_coord_helio.x,
+            body_a_y_coord_helio: self.body_a_coord_helio.y,
+            body_a_z_coord_helio: self.body_a_coord_helio.z,
+            body_b_x_coord_helio: self.body_b_coord_helio.x,
+            body_b_y_coord_helio: self.body_b_coord_helio.y,
+            body_b_z_coord_helio: self.body_b_coord_helio.z,
+            generated_bodies_id: bodies_id_str,
+        }
+    }
 }
 
 fn mark_overlapping_groups_axis_slice<F>(
@@ -301,17 +338,17 @@ pub fn collision_model(
     body_b: &SimobjT,
     intersect_info: &IntersectionResult,
 ) -> CollisionResult {
-    println!(
-        "Collision ({}): {} {}, dist: {}, {:?} {:?}",
-        env.sim_time_s,
-        body_a.name,
-        body_b.name,
-        intersect_info.intersect_dist,
-        intersect_info.body_a_intersect_coord,
-        intersect_info.body_b_intersect_coord
-    );
     CollisionResult {
         new_sim_bodies: Vec::new(),
+        body_a_id: body_a.id,
+        body_b_id: body_b.id,
+        body_a_name: body_a.name.clone(),
+        body_b_name: body_b.name.clone(),
+        body_a_coord_helio: intersect_info.body_a_intersect_coord,
+        body_b_coord_helio: intersect_info.body_b_intersect_coord,
+        sim_time: env.sim_time_s,
+        intercept_distance: intersect_info.intersect_dist,
+        relative_velocity: 0.0,
     }
 }
 

@@ -183,7 +183,9 @@ fn run_collision_check(
             // collided to generated them.
             sim_bodies.par_sort_unstable_by(|a, b| a.overlap_marker.cmp(&b.overlap_marker));
 
-            // TODO Write out collision result as simulation output.
+            collision_gen.iter().for_each(|x| {
+                output_controller.write_out_collision_info(x.to_output_form(&new_bodies))
+            })
         }
 
         // Write out simulation results for new objects to populate simulation
