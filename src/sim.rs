@@ -156,12 +156,7 @@ fn run_collision_check(
                 intersections
                     .iter()
                     .map(|intersect_result| -> CollisionResult {
-                        collision_model(
-                            previous_env,
-                            slice.get(intersect_result.body_a_idx).unwrap(),
-                            slice.get(intersect_result.body_b_idx).unwrap(),
-                            intersect_result,
-                        )
+                        collision_model(previous_env, slice, intersect_result)
                     })
                     .collect()
             });

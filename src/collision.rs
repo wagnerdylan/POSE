@@ -297,15 +297,24 @@ pub fn find_body_intersections(
             let body_a = sim_bodies.get(i).unwrap();
             let body_b = sim_bodies.get(j).unwrap();
             if let Some(body_stop) = body_a.marked_for_deletion_on_step {
-                if body_stop >= current_step_count {
+                if body_stop <= current_step_count {
                     continue;
                 }
             }
             if let Some(body_stop) = body_b.marked_for_deletion_on_step {
-                if body_stop >= current_step_count {
+                if body_stop <= current_step_count {
                     continue;
                 }
             }
+
+            // Skipping over simulation bodies which are not in the same soi
+            // prevents dis-jointed calculations when using velocity between the
+            // two bodies. This may result in a false-negative collision check although
+            // this case should be expectantly rare.
+            if body_a.state.soi != body_b.state.soi {
+                continue;
+            }
+
             // Calculate the shortest line between two trajectory lines of body_a and body_b.
             let intersect_line = line_line_n_point_dist(
                 (
@@ -334,10 +343,21 @@ pub fn find_body_intersections(
 
 pub fn collision_model(
     env: &Environment,
-    body_a: &SimobjT,
-    body_b: &SimobjT,
+    sim_bodies: &mut [SimobjT],
     intersect_info: &IntersectionResult,
 ) -> CollisionResult {
+    // TODO flush out this section with an empirical collision model.
+    sim_bodies
+        .get_mut(intersect_info.body_a_idx)
+        .unwrap()
+        .marked_for_deletion_on_step = Some(env.step_count);
+    sim_bodies
+        .get_mut(intersect_info.body_b_idx)
+        .unwrap()
+        .marked_for_deletion_on_step = Some(env.step_count);
+
+    let body_a = sim_bodies.get(intersect_info.body_a_idx).unwrap();
+    let body_b = sim_bodies.get(intersect_info.body_b_idx).unwrap();
     CollisionResult {
         new_sim_bodies: Vec::new(),
         body_a_id: body_a.id,
@@ -348,7 +368,7 @@ pub fn collision_model(
         body_b_coord_helio: intersect_info.body_b_intersect_coord,
         sim_time: env.sim_time_s,
         intercept_distance: intersect_info.intersect_dist,
-        relative_velocity: 0.0,
+        relative_velocity: types::l2_norm(&(body_a.state.velocity - body_b.state.velocity)).abs(),
     }
 }
 

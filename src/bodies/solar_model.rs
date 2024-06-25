@@ -15,7 +15,7 @@ const EARTH_RADII_PER_ASTRONOMICAL_UNIT: f64 =
     METERS_PER_ASTRONOMICAL_UNIT / METERS_PER_EARTH_EQUATORIAL_RADIUS; // 23454.78
 const AU_METER: f64 = 1.496e+11;
 
-#[derive(Display, Clone, Deserialize, Serialize, Default)]
+#[derive(Display, Clone, Deserialize, Serialize, Default, PartialEq)]
 #[serde(tag = "type")]
 pub enum Solarobj {
     #[strum(serialize = "sun")]
