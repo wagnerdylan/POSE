@@ -165,7 +165,6 @@ fn read_object_from_file<P: AsRef<Path>>(path: &P) -> Result<InitData, Box<dyn E
     // Read the JSON contents of the file as an instance of `Objects`.
     let u = serde_json::from_reader(reader)?;
 
-    // Return the `Objects`.
     Ok(u)
 }
 
