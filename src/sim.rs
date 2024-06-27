@@ -125,7 +125,20 @@ fn write_out_simulation_results(
 
 /// Main collision check algorithm.
 ///
-/// TODO explain at a high level what this algorithm does, steps, etc...
+/// (1) Find overlapping bounding boxes which define a group of objects
+///     to be checked for intersections. Groups are layed out within the
+///     sim_bodies vector sequentially. For instance sim_bodies may look
+///     like [None, None, 1, 1, 2, 2, 2...]. None markers indicate that
+///     a given simulation object does not belong to a intersection group.
+///     The 'None' group is ignored in the following steps.
+/// (2) Prepare for object re-propagation by swapping the saved_state with
+///     the current state for objects which belong to a collision group.
+///     This effectively 'rewinds' the simulation so intersections may be checked.
+/// (3) Propagate simulation objects using the previous_env checking for
+///     intersections between each object within a intersection group.
+///     If an intersection occurs, the collision model is called which
+///     may generate new simulation bodies and delete current objects
+///     passed into the model.
 ///
 /// ### Pre-Conditions
 ///     'current_env' is at the bound of the most recent collision check period.
@@ -141,7 +154,11 @@ fn write_out_simulation_results(
 ///     will be re-propagated until the point of 'saved_state'.
 ///
 /// ### Parameters
-///     TODO
+/// * 'current_env' - Most recent simulation environment used as a stopping point.
+/// * 'previous_env' - Simulation environment from the last collision check period.
+/// * 'runtime_params' - Parameters collected on simulation init for running the sim.
+/// * 'sim_bodies' - Simulation objects to be propagated.
+/// * 'output_controller' - Output object used for emitting simulation results.
 ///
 fn run_collision_check(
     current_env: &Environment,
