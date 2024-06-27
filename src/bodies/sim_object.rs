@@ -107,6 +107,7 @@ pub struct SimobjT {
     pub drag_area: f64,
     pub drag_coeff: f64,
     pub mass: f64,
+    pub radius: f64,
     pub state: SimObjTState,
     #[serde(skip_deserializing, skip_serializing)]
     pub saved_state: SimObjTState,

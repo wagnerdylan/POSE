@@ -97,12 +97,14 @@ def sphere_parameters(num: int, radius_cm: float):
 def random_debris(num: int, alt: float) -> Dict:
     c_x, c_y, c_z = rand_dim(3, alt)
     v_x, v_y, v_z = tangent_velocity(c_x, c_y, c_z, alt)
-    name, drag_area, drag_coeff, mass = sphere_parameters(num, random.uniform(0.5, 2))
+    radius_cm = random.uniform(0.5, 2)
+    name, drag_area, drag_coeff, mass = sphere_parameters(num, radius_cm)
     obj = {
         "name": name,
         "drag_area": drag_area,
         "drag_coeff": drag_coeff,
         "mass": mass,
+        "radius": radius_cm / 100,
         "state": {
             "soi": {"type": "Earth"},
             "coords": {

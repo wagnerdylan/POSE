@@ -291,6 +291,11 @@ pub fn simulate(
     let mut previous_env = env.clone();
 
     loop {
+        // Simulation halting condition. Return from function "simulate" will end simulation execution.
+        if should_simulation_halt(&env, &runtime_params) {
+            return;
+        }
+
         // Write out simulation data at the start of the simulation loop as to capture
         // initial simulation state.
         last_write = write_out_simulation_results(
@@ -300,12 +305,6 @@ pub fn simulate(
             &runtime_params,
             last_write,
         );
-
-        // Main simulation object propagation.
-        propagate_simulation_objects(&env, &runtime_params, &mut sim_bodies);
-
-        // End of simulation step calculations, prepare for next simulation step.
-        env.advance_simulation_environment(&runtime_params);
 
         // Check for simulation object collisions. Normal simulation state is restored after this
         // logic is run.
@@ -326,9 +325,10 @@ pub fn simulate(
                 .for_each(|a| a.saved_state = a.state.clone());
         }
 
-        // Simulation halting condition. Return from function "simulate" will end simulation execution.
-        if should_simulation_halt(&env, &runtime_params) {
-            return;
-        }
+        // Main simulation object propagation.
+        propagate_simulation_objects(&env, &runtime_params, &mut sim_bodies);
+
+        // End of simulation step calculations, prepare for next simulation step.
+        env.advance_simulation_environment(&runtime_params);
     }
 }

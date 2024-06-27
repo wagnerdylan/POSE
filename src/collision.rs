@@ -326,14 +326,17 @@ pub fn find_body_intersections(
                     &body_b.state.coord_helio,
                 ),
             );
-            // TODO remove this hardcode in favor of a geometric intersect calculation.
-            if intersect_line.0 < 10.0 {
+            let intersect_dist = intersect_line.0;
+            let body_a_intersect_coord = intersect_line.1;
+            let body_b_intersect_coord = intersect_line.2;
+            let intersect_bound = body_a.radius + body_b.radius;
+            if intersect_dist < intersect_bound {
                 result_vec.push(IntersectionResult {
                     body_a_idx: i,
                     body_b_idx: j,
-                    body_a_intersect_coord: intersect_line.1,
-                    body_b_intersect_coord: intersect_line.2,
-                    intersect_dist: intersect_line.0,
+                    body_a_intersect_coord,
+                    body_b_intersect_coord,
+                    intersect_dist,
                 });
             }
         }
@@ -395,6 +398,7 @@ mod tests {
             drag_area: 1.0,
             drag_coeff: 1.0,
             mass: 1.0,
+            radius: 1.0,
             state: SimObjTState {
                 soi: Solarobj::Earth,
                 coords: Array3d::default(),
