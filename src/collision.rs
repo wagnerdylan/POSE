@@ -22,8 +22,8 @@ pub struct CollisionResult {
     pub body_b_id: u32,
     pub body_a_name: String,
     pub body_b_name: String,
-    pub body_a_coord_helio: Array3d,
-    pub body_b_coord_helio: Array3d,
+    pub body_a_coord: Array3d,
+    pub body_b_coord: Array3d,
     pub sim_time: f64,
     pub intercept_distance: f64,
     pub relative_velocity: f64,
@@ -46,12 +46,12 @@ impl CollisionResult {
             sim_time: self.sim_time,
             intercept_distance: self.intercept_distance,
             relative_velocity: self.relative_velocity,
-            body_a_x_coord_helio: self.body_a_coord_helio.x,
-            body_a_y_coord_helio: self.body_a_coord_helio.y,
-            body_a_z_coord_helio: self.body_a_coord_helio.z,
-            body_b_x_coord_helio: self.body_b_coord_helio.x,
-            body_b_y_coord_helio: self.body_b_coord_helio.y,
-            body_b_z_coord_helio: self.body_b_coord_helio.z,
+            body_a_x_coord: self.body_a_coord.x,
+            body_a_y_coord: self.body_a_coord.y,
+            body_a_z_coord: self.body_a_coord.z,
+            body_b_x_coord: self.body_b_coord.x,
+            body_b_y_coord: self.body_b_coord.y,
+            body_b_z_coord: self.body_b_coord.z,
             generated_bodies_id: bodies_id_str,
         }
     }
@@ -117,7 +117,13 @@ where
 {
     let mut num_groups: usize = 0;
 
-    for slice in sim_bodies.chunk_by_mut(|a, b| a.overlap_marker == b.overlap_marker) {
+    // Group overlapping objects by the overlap marker to collect previously marked together.
+    // Additionally group by SOI to handle edge cases where objects span multiple SOIs.
+    for slice in sim_bodies.chunk_by_mut(|a, b| {
+        a.overlap_marker == b.overlap_marker
+            && a.state.soi == b.state.soi
+            && a.saved_state.soi == b.saved_state.soi
+    }) {
         // Skip over non-overlap group.
         if slice.first().unwrap().overlap_marker.is_none() {
             continue;
@@ -142,7 +148,7 @@ where
     num_groups
 }
 
-fn keep_only_satellite_intersection_groups(sim_bodies: &mut [SimobjT]) {
+fn keep_only_satellite_intersection_groups(sim_bodies: &mut [SimobjT]) -> bool {
     let mut sat_group_nums = HashSet::new();
     for slice in sim_bodies.chunk_by_mut(|a, b| a.overlap_marker == b.overlap_marker) {
         // Skip over non-overlap group.
@@ -174,6 +180,8 @@ fn keep_only_satellite_intersection_groups(sim_bodies: &mut [SimobjT]) {
 
     // Resort sim_bodies to move newly de-marked overlap groups into the "None" group.
     sim_bodies.par_sort_unstable_by(|a, b| a.overlap_marker.cmp(&b.overlap_marker));
+
+    !sat_group_nums.is_empty()
 }
 
 pub fn find_collision_set(sim_bodies: &mut [SimobjT], check_only_satellites: bool) -> bool {
@@ -183,44 +191,44 @@ pub fn find_collision_set(sim_bodies: &mut [SimobjT], check_only_satellites: boo
         .iter_mut()
         .for_each(|a| a.overlap_marker = Some(1));
 
-    let x_accessor = |a: &SimobjT| (a.saved_state.coord_helio.x, a.state.coord_helio.x);
+    let x_accessor = |a: &SimobjT| (a.saved_state.coords.x, a.state.coords.x);
     let x_cmp = |a: &SimobjT, b: &SimobjT| {
         a.saved_state
-            .coord_helio
+            .coords
             .x
-            .partial_cmp(&b.saved_state.coord_helio.x)
+            .partial_cmp(&b.saved_state.coords.x)
             .unwrap()
     };
     if mark_overlapping_groups_axis(sim_bodies, x_accessor, x_cmp) == 0 {
         return false;
     }
 
-    let y_accessor = |a: &SimobjT| (a.saved_state.coord_helio.y, a.state.coord_helio.y);
+    let y_accessor = |a: &SimobjT| (a.saved_state.coords.y, a.state.coords.y);
     let y_cmp = |a: &SimobjT, b: &SimobjT| {
         a.saved_state
-            .coord_helio
+            .coords
             .y
-            .partial_cmp(&b.saved_state.coord_helio.y)
+            .partial_cmp(&b.saved_state.coords.y)
             .unwrap()
     };
     if mark_overlapping_groups_axis(sim_bodies, y_accessor, y_cmp) == 0 {
         return false;
     }
 
-    let z_accessor = |a: &SimobjT| (a.saved_state.coord_helio.z, a.state.coord_helio.z);
+    let z_accessor = |a: &SimobjT| (a.saved_state.coords.z, a.state.coords.z);
     let z_cmp = |a: &SimobjT, b: &SimobjT| {
         a.saved_state
-            .coord_helio
+            .coords
             .z
-            .partial_cmp(&b.saved_state.coord_helio.z)
+            .partial_cmp(&b.saved_state.coords.z)
             .unwrap()
     };
     if mark_overlapping_groups_axis(sim_bodies, z_accessor, z_cmp) == 0 {
         return false;
     }
 
-    if check_only_satellites {
-        keep_only_satellite_intersection_groups(sim_bodies);
+    if check_only_satellites && !keep_only_satellite_intersection_groups(sim_bodies) {
+        return false;
     }
 
     // At this point the vector of simulation bodies are chunked into a group which does
@@ -317,14 +325,8 @@ pub fn find_body_intersections(
 
             // Calculate the shortest line between two trajectory lines of body_a and body_b.
             let intersect_line = line_line_n_point_dist(
-                (
-                    &body_a.state.coord_helio_previous,
-                    &body_a.state.coord_helio,
-                ),
-                (
-                    &body_b.state.coord_helio_previous,
-                    &body_b.state.coord_helio,
-                ),
+                (&body_a.state.previous_coords, &body_a.state.coords),
+                (&body_b.state.previous_coords, &body_b.state.coords),
             );
             let intersect_dist = intersect_line.0;
             let body_a_intersect_coord = intersect_line.1;
@@ -367,8 +369,8 @@ pub fn collision_model(
         body_b_id: body_b.id,
         body_a_name: body_a.name.clone(),
         body_b_name: body_b.name.clone(),
-        body_a_coord_helio: intersect_info.body_a_intersect_coord,
-        body_b_coord_helio: intersect_info.body_b_intersect_coord,
+        body_a_coord: intersect_info.body_a_intersect_coord,
+        body_b_coord: intersect_info.body_b_intersect_coord,
         sim_time: env.sim_time_s,
         intercept_distance: intersect_info.intersect_dist,
         relative_velocity: types::l2_norm(&(body_a.state.velocity - body_b.state.velocity)).abs(),
@@ -401,27 +403,27 @@ mod tests {
             radius: 1.0,
             state: SimObjTState {
                 soi: Solarobj::Earth,
-                coords: Array3d::default(),
-                velocity: Array3d::default(),
-                coord_helio: Array3d {
+                coords: Array3d {
                     x: 100.0,
                     y: 200.0,
                     z: 300.0,
                 },
-                coord_helio_previous: Array3d::default(),
+                previous_coords: Array3d::default(),
+                velocity: Array3d::default(),
+                coord_helio: Array3d::default(),
                 coords_fixed: LLH::default(),
             },
             saved_state: SimObjTState {
                 soi: Solarobj::Earth,
-                coords: Array3d::default(),
                 velocity: Array3d::default(),
-                coord_helio: Array3d {
+                coords: Array3d {
                     x: 50.0,
                     y: 100.0,
                     z: 150.0,
                 },
-                coord_helio_previous: Array3d::default(),
                 coords_fixed: LLH::default(),
+                previous_coords: Array3d::default(),
+                coord_helio: Array3d::default(),
             },
             overlap_marker: None,
             marked_for_deletion_on_step: None,
@@ -430,40 +432,40 @@ mod tests {
         sim_bodies.push(sim_obj_template.clone());
 
         sim_obj_template.name = "test_object_2".to_string();
-        sim_obj_template.state.coord_helio.x = -160.0;
-        sim_obj_template.saved_state.coord_helio.x = 90.0;
-        sim_obj_template.state.coord_helio.y = 0.0;
-        sim_obj_template.saved_state.coord_helio.y = 1.0;
+        sim_obj_template.state.coords.x = -160.0;
+        sim_obj_template.saved_state.coords.x = 90.0;
+        sim_obj_template.state.coords.y = 0.0;
+        sim_obj_template.saved_state.coords.y = 1.0;
         sim_bodies.push(sim_obj_template.clone());
 
         sim_obj_template.name = "test_object_3".to_string();
-        sim_obj_template.state.coord_helio.x = 250.0;
-        sim_obj_template.saved_state.coord_helio.x = 90.0;
-        sim_obj_template.state.coord_helio.y = 300.0;
-        sim_obj_template.saved_state.coord_helio.y = 150.0;
-        sim_obj_template.state.coord_helio.z = 350.0;
-        sim_obj_template.saved_state.coord_helio.z = 200.0;
+        sim_obj_template.state.coords.x = 250.0;
+        sim_obj_template.saved_state.coords.x = 90.0;
+        sim_obj_template.state.coords.y = 300.0;
+        sim_obj_template.saved_state.coords.y = 150.0;
+        sim_obj_template.state.coords.z = 350.0;
+        sim_obj_template.saved_state.coords.z = 200.0;
         sim_bodies.push(sim_obj_template.clone());
 
         sim_obj_template.name = "test_object_4".to_string();
-        sim_obj_template.state.coord_helio.x = 1000.0;
-        sim_obj_template.saved_state.coord_helio.x = 1050.0;
-        sim_obj_template.state.coord_helio.y = -1.0;
-        sim_obj_template.saved_state.coord_helio.y = 1.1;
+        sim_obj_template.state.coords.x = 1000.0;
+        sim_obj_template.saved_state.coords.x = 1050.0;
+        sim_obj_template.state.coords.y = -1.0;
+        sim_obj_template.saved_state.coords.y = 1.1;
         sim_bodies.push(sim_obj_template.clone());
 
         sim_obj_template.name = "test_object_5".to_string();
-        sim_obj_template.state.coord_helio.x = 10000.0;
-        sim_obj_template.saved_state.coord_helio.x = 5050.0;
-        sim_obj_template.state.coord_helio.y = -10.0;
-        sim_obj_template.saved_state.coord_helio.y = 100.0;
+        sim_obj_template.state.coords.x = 10000.0;
+        sim_obj_template.saved_state.coords.x = 5050.0;
+        sim_obj_template.state.coords.y = -10.0;
+        sim_obj_template.saved_state.coords.y = 100.0;
         sim_bodies.push(sim_obj_template.clone());
 
         sim_obj_template.name = "test_object_6".to_string();
-        sim_obj_template.state.coord_helio.x = 20000.0;
-        sim_obj_template.saved_state.coord_helio.x = 7050.0;
-        sim_obj_template.state.coord_helio.y = 160.0;
-        sim_obj_template.saved_state.coord_helio.y = 350.0;
+        sim_obj_template.state.coords.x = 20000.0;
+        sim_obj_template.saved_state.coords.x = 7050.0;
+        sim_obj_template.state.coords.y = 160.0;
+        sim_obj_template.saved_state.coords.y = 350.0;
         sim_bodies.push(sim_obj_template.clone());
 
         sim_bodies
@@ -474,7 +476,7 @@ mod tests {
         let mut sim_bodies = make_test_sim_bodies();
 
         let group_cnt = mark_overlapping_groups_axis_slice(&mut sim_bodies, 0, &|a| {
-            (a.saved_state.coord_helio.x, a.state.coord_helio.x)
+            (a.saved_state.coords.x, a.state.coords.x)
         });
 
         assert_eq!(group_cnt, 2);
@@ -494,12 +496,12 @@ mod tests {
             .iter_mut()
             .for_each(|a| a.overlap_marker = Some(1));
 
-        let x_accessor = |a: &SimobjT| (a.saved_state.coord_helio.x, a.state.coord_helio.x);
+        let x_accessor = |a: &SimobjT| (a.saved_state.coords.x, a.state.coords.x);
         let x_cmp = |a: &SimobjT, b: &SimobjT| {
             a.saved_state
-                .coord_helio
+                .coords
                 .x
-                .partial_cmp(&b.saved_state.coord_helio.x)
+                .partial_cmp(&b.saved_state.coords.x)
                 .unwrap()
         };
         let group_cnt = mark_overlapping_groups_axis(&mut sim_bodies, x_accessor, x_cmp);
@@ -511,12 +513,12 @@ mod tests {
         assert_eq!(sim_bodies.get(4).unwrap().overlap_marker.unwrap(), 2);
         assert_eq!(sim_bodies.get(5).unwrap().overlap_marker.unwrap(), 2);
 
-        let y_accessor = |a: &SimobjT| (a.saved_state.coord_helio.y, a.state.coord_helio.y);
+        let y_accessor = |a: &SimobjT| (a.saved_state.coords.y, a.state.coords.y);
         let y_cmp = |a: &SimobjT, b: &SimobjT| {
             a.saved_state
-                .coord_helio
+                .coords
                 .y
-                .partial_cmp(&b.saved_state.coord_helio.y)
+                .partial_cmp(&b.saved_state.coords.y)
                 .unwrap()
         };
         let group_cnt = mark_overlapping_groups_axis(&mut sim_bodies, y_accessor, y_cmp);

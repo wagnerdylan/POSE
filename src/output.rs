@@ -57,12 +57,12 @@ pub struct CollisionInfoOut {
     pub sim_time: f64,
     pub intercept_distance: f64,
     pub relative_velocity: f64,
-    pub body_a_x_coord_helio: f64,
-    pub body_a_y_coord_helio: f64,
-    pub body_a_z_coord_helio: f64,
-    pub body_b_x_coord_helio: f64,
-    pub body_b_y_coord_helio: f64,
-    pub body_b_z_coord_helio: f64,
+    pub body_a_x_coord: f64,
+    pub body_a_y_coord: f64,
+    pub body_a_z_coord: f64,
+    pub body_b_x_coord: f64,
+    pub body_b_y_coord: f64,
+    pub body_b_z_coord: f64,
     pub generated_bodies_id: String,
 }
 

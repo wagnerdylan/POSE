@@ -88,9 +88,9 @@ pub struct SimObjTState {
     pub coords: Array3d,
     pub velocity: Array3d,
     #[serde(skip_deserializing)]
-    pub coord_helio: Array3d,
+    pub previous_coords: Array3d,
     #[serde(skip_deserializing)]
-    pub coord_helio_previous: Array3d,
+    pub coord_helio: Array3d,
     #[serde(skip_deserializing)]
     pub coords_fixed: LLH,
 }
