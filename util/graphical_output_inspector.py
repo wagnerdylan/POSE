@@ -52,6 +52,7 @@ app.layout = dash.html.Center(
                         dbc.Checklist(
                             options=[
                                 {"label": "Orbit Body", "value": "orbit_body"},
+                                {"label": "Heliocentric Coords", "value": "heliocentric_coords"},
                             ],
                             value=["orbit_body"],
                             id="switch-control",
@@ -99,13 +100,13 @@ def make_sphere(x, y, z, radius, resolution=100):
     return (X, Y, Z)
 
 
-def format_text_info(row):
+def format_text_info(row, coords_fields):
     hover_info = [
         "name",
         "sim_time",
-        "x_coord",
-        "y_coord",
-        "z_coord",
+        coords_fields[0],
+        coords_fields[1],
+        coords_fields[2],
         "altitude",
         "x_velocity",
         "y_velocity",
@@ -119,6 +120,7 @@ def format_text_info(row):
 
 @dash.callback(
     dash.Output("plot", "figure"),
+    dash.Output("switch-control", "value"),
     dash.Input("switch-control", "value"),
     dash.Input("sim_time-range", "value"),
 )
@@ -127,19 +129,26 @@ def draw_plot(switch_control, sim_time_range):
         sim_data["sim_time"] <= sim_time_range[1]
     )
     sim_data_slice = sim_data[time_mask]
-
     orbital_line_fig = pgo.Figure()
+
+    coords_fields = None
+    if "heliocentric_coords" in switch_control:
+        if "orbit_body" in switch_control:
+            switch_control.remove("orbit_body")
+        coords_fields = ("x_coord_helio", "y_coord_helio", "z_coord_helio")
+    else:
+        coords_fields = ("x_coord", "y_coord", "z_coord")
 
     for plot_object in plot_objects:
         object_data = sim_data_slice[
             sim_data_slice[plot_object["filter"]] == plot_object["value"]
         ]
-        text_labels = [format_text_info(row) for _, row in object_data.iterrows()]
+        text_labels = [format_text_info(row, coords_fields) for _, row in object_data.iterrows()]
         orbital_line_fig.add_trace(
             pgo.Scatter3d(
-                x=object_data["x_coord"],
-                y=object_data["y_coord"],
-                z=object_data["z_coord"],
+                x=object_data[coords_fields[0]],
+                y=object_data[coords_fields[1]],
+                z=object_data[coords_fields[2]],
                 text=text_labels,
                 hoverinfo="text",
                 name=object_data["name"].values[0],
@@ -159,7 +168,7 @@ def draw_plot(switch_control, sim_time_range):
             showscale=False,
         )
 
-    return orbital_line_fig
+    return orbital_line_fig, switch_control
 
 
 app.run_server(debug=True)

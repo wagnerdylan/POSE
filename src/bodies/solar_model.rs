@@ -15,11 +15,12 @@ const EARTH_RADII_PER_ASTRONOMICAL_UNIT: f64 =
     METERS_PER_ASTRONOMICAL_UNIT / METERS_PER_EARTH_EQUATORIAL_RADIUS; // 23454.78
 const AU_METER: f64 = 1.496e+11;
 
-#[derive(Display, Clone, Deserialize, Serialize)]
+#[derive(Display, Clone, Deserialize, Serialize, Default, PartialEq)]
 #[serde(tag = "type")]
 pub enum Solarobj {
     #[strum(serialize = "sun")]
     Sun,
+    #[default]
     #[strum(serialize = "earth")]
     Earth,
     #[strum(serialize = "moon")]
@@ -73,11 +74,13 @@ pub struct SunModel {
     pub state: ModelState,
 }
 
+#[derive(Clone)]
 pub struct Sun {
     pub model: SunModel,
     pub attr: &'static SolarAttr,
 }
 
+#[derive(Clone)]
 pub struct Earth {
     sw_indices: Vec<SwIndex>, // Space Weather Indices.
     current_sw: usize,
@@ -85,6 +88,7 @@ pub struct Earth {
     pub attr: &'static SolarAttr,
 }
 
+#[derive(Clone)]
 pub struct Moon {
     pub model: PlanetPSModel,
     pub attr: &'static SolarAttr,

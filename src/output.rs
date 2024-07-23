@@ -20,12 +20,12 @@ pub struct SimulationObjectParameters {
     pub sim_time: f64, // Simulation time
     pub name: String,
     pub soi: String, // Sphere of influence in string form
-    pub x_abs_coord: f64,
-    /// Absolute coordinate of object in the x axis
-    pub y_abs_coord: f64,
-    /// Absolute coordinate of object in the y axis
-    pub z_abs_coord: f64,
-    /// Absolute coordinate of object in the z axis
+    /// Heliocentric coordinate of object in the x axis
+    pub x_coord_helio: f64,
+    /// Heliocentric coordinate of object in the y axis
+    pub y_coord_helio: f64,
+    /// Heliocentric coordinate of object in the z axis
+    pub z_coord_helio: f64,
     pub lat: f64,
     pub long: f64,
     pub altitude: f64,
@@ -48,12 +48,32 @@ pub struct SimulationObjectPerturbationOut {
     pub z_accel: f64,
 }
 
+#[derive(Debug, Serialize)]
+pub struct CollisionInfoOut {
+    pub body_a_id: u32,
+    pub body_b_id: u32,
+    pub body_a_name: String,
+    pub body_b_name: String,
+    pub sim_time: f64,
+    pub intercept_distance: f64,
+    pub relative_velocity: f64,
+    pub body_a_x_coord: f64,
+    pub body_a_y_coord: f64,
+    pub body_a_z_coord: f64,
+    pub body_b_x_coord: f64,
+    pub body_b_y_coord: f64,
+    pub body_b_z_coord: f64,
+    pub generated_bodies_id: String,
+}
+
 pub trait SimulationOutput {
     fn write_out_object_parameters(&mut self, object_params: SimulationObjectParameters);
 
     fn write_out_object_perturbation(&mut self, perturb_object: SimulationObjectPerturbationOut);
 
     fn write_out_solar_object(&mut self, solar_object: SolarObjectOut);
+
+    fn write_out_collision_info(&mut self, collision_info: CollisionInfoOut);
 }
 
 pub mod csv_output {
@@ -66,6 +86,7 @@ pub mod csv_output {
         object_parameters_writer: csv::Writer<fs::File>,
         object_perturbation_writer: csv::Writer<fs::File>,
         solar_object_writer: csv::Writer<fs::File>,
+        collision_info_writer: csv::Writer<fs::File>,
     }
 
     impl CSVController {
@@ -88,6 +109,10 @@ pub mod csv_output {
                 .unwrap(),
                 solar_object_writer: csv::Writer::from_path(
                     full_dirpath.join("pose_solar_objects.csv"),
+                )
+                .unwrap(),
+                collision_info_writer: csv::Writer::from_path(
+                    full_dirpath.join("pose_collision_info.csv"),
                 )
                 .unwrap(),
             }
@@ -125,6 +150,13 @@ pub mod csv_output {
             // Treat as critical error.
             self.object_perturbation_writer.flush().unwrap();
         }
+
+        fn write_out_collision_info(&mut self, collision_info: super::CollisionInfoOut) {
+            self.collision_info_writer
+                .serialize(collision_info)
+                .expect("Failed to write out collision information to the corresponding csv file.");
+            self.collision_info_writer.flush().unwrap();
+        }
     }
 }
 
@@ -143,7 +175,7 @@ pub fn write_out_all_object_parameters(
     output_controller: &mut dyn SimulationOutput,
 ) {
     for sim_obj in sim_objects {
-        output_controller.write_out_object_parameters(sim_obj.to_output_form(env.get_sim_time()));
+        output_controller.write_out_object_parameters(sim_obj.to_output_form(env.sim_time_s));
     }
 }
 
@@ -154,7 +186,7 @@ pub fn write_out_all_object_perturbations(
 ) {
     for sim_obj in sim_objects {
         if let Some(store) = &sim_obj.perturb_store {
-            for perturb_out in store.to_output_form(sim_obj.id, &sim_obj.name, env.get_sim_time()) {
+            for perturb_out in store.to_output_form(sim_obj.id, &sim_obj.name, env.sim_time_s) {
                 output_controller.write_out_object_perturbation(perturb_out);
             }
         }

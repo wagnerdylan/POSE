@@ -8,7 +8,7 @@ pub struct Array3d {
     pub z: f64,
 }
 
-#[derive(Serialize, Deserialize, Default)]
+#[derive(Serialize, Deserialize, Default, Clone)]
 pub struct LLH {
     pub lat: f64,
     pub long: f64,

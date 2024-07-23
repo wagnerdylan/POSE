@@ -5,13 +5,14 @@ use crate::{
 };
 use serde::{Deserialize, Serialize};
 
-#[derive(Serialize, Default)]
+#[derive(Serialize, Default, Clone)]
 pub enum SimObjectType {
     #[default]
     Spacecraft,
     Debris,
 }
 
+#[derive(Clone)]
 pub struct PerturbationDefinition {
     pub perturb_name: String,
     pub x_accel: f64,
@@ -19,7 +20,7 @@ pub struct PerturbationDefinition {
     pub z_accel: f64,
 }
 
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub struct PerturbationStore {
     pub sun_gravity: Option<PerturbationDefinition>,
     pub earth_gravity: Option<PerturbationDefinition>,
@@ -81,42 +82,56 @@ impl PerturbationStore {
     }
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Default, Clone)]
+pub struct SimObjTState {
+    pub soi: Solarobj,
+    pub coords: Array3d,
+    pub velocity: Array3d,
+    #[serde(skip_deserializing)]
+    pub previous_coords: Array3d,
+    #[serde(skip_deserializing)]
+    pub coord_helio: Array3d,
+    #[serde(skip_deserializing)]
+    pub coords_fixed: LLH,
+}
+
+#[derive(Serialize, Deserialize, Clone)]
 pub struct SimobjT {
     #[serde(skip_deserializing)]
     pub id: u32,
     #[serde(skip_deserializing)]
     pub sim_object_type: SimObjectType,
-    #[serde(skip_deserializing)]
-    pub coords_abs: Array3d,
-    #[serde(skip_deserializing)]
-    pub coords_fixed: LLH,
     #[serde(skip_deserializing, skip_serializing)]
     pub perturb_store: Option<PerturbationStore>,
     pub name: String,
-    pub soi: Solarobj,
-    pub coords: Array3d,
-    pub velocity: Array3d,
     pub drag_area: f64,
     pub drag_coeff: f64,
     pub mass: f64,
+    pub radius: f64,
+    pub state: SimObjTState,
+    #[serde(skip_deserializing, skip_serializing)]
+    pub saved_state: SimObjTState,
+    #[serde(skip_deserializing, skip_serializing)]
+    pub overlap_marker: Option<usize>,
+    #[serde(skip_deserializing, skip_serializing)]
+    pub marked_for_deletion_on_step: Option<u64>,
 }
 
 impl SimobjT {
     pub fn to_output_form(&self, sim_time: f64) -> output::SimulationObjectParameters {
-        let abs_coords = &self.coords_abs;
-        let fixed_coords = &self.coords_fixed;
-        let coords = &self.coords;
-        let velocity = &self.velocity;
+        let coord_helio = &self.state.coord_helio;
+        let fixed_coords = &self.state.coords_fixed;
+        let coords = &self.state.coords;
+        let velocity = &self.state.velocity;
 
         output::SimulationObjectParameters {
             id: self.id,
             sim_time,
             name: self.name.clone(),
-            soi: self.soi.to_string(),
-            x_abs_coord: abs_coords.x,
-            y_abs_coord: abs_coords.y,
-            z_abs_coord: abs_coords.z,
+            soi: self.state.soi.to_string(),
+            x_coord_helio: coord_helio.x,
+            y_coord_helio: coord_helio.y,
+            z_coord_helio: coord_helio.z,
             lat: fixed_coords.lat,
             long: fixed_coords.long,
             altitude: fixed_coords.alt,
