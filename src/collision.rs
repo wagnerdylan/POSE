@@ -57,6 +57,28 @@ impl CollisionResult {
     }
 }
 
+/// Find overlapping groups on an attribute defined within the accessor closure.
+/// Overlapping groups may be size two or more which span a bound from the
+/// first element in the group to the last. Elements in an overlapping group
+/// may not be completely overlapping between all elements in the grouping.
+/// This aspect of the grouping algorithm is used to account for connecting
+/// elements within group sizes of three or more. For instance, given
+/// an element grouping of size three where E1 overlaps with E2 and E2 overlaps
+/// with E3, E1 and E3 do not overlap. A collision with E1 and E2 may generate
+/// debris which impact the collision situation with E3.
+///
+/// ### Pre-Conditions
+///     'sim_bodies' must be sorted on the assessor element and contain only
+///     a single overlapping group.
+///
+/// ### Arguments
+/// * 'sim_bodies' - Slice of simulation bodies following the 'pre-conditions' defined above.
+/// * 'group_cnt' - Most recent count of all groups found so for in axis group search.
+/// * 'accessor' - Closure which is used to access the relevant attribute per simulation object.
+///
+/// ### Return
+///     The most recent group count is return to be used in subsequent calls to this function.
+///
 fn mark_overlapping_groups_axis_slice<F>(
     sim_bodies: &mut [SimobjT],
     mut group_cnt: usize,
@@ -106,6 +128,22 @@ where
     group_cnt
 }
 
+/// Per-axis overlap group search function. This function is responsible for
+/// setting up previous overlap groups for further grouping on next object axis.
+///
+/// ### Pre-Conditions
+///     'sim_bodies' is sorted on the overlap marker attribute. The overlap marker
+///     must be from the previous call into this function or a non-none value for
+///     initial call into this function (like a value of 1).
+///
+/// ### Arguments
+/// * 'sim_bodies' - Slice of simulation bodies following the 'pre-conditions' defined above.
+/// * 'accessor' - Closure which is used to access the relevant attribute per simulation object.
+/// * 'coord_cmp' - Closure which is used to compare the relevant attribute across two simulation objects.
+///
+/// ### Return
+///     The number of overlap groups found for the current axis is returned.
+///
 fn mark_overlapping_groups_axis<F, C>(
     sim_bodies: &mut [SimobjT],
     accessor: F,
@@ -132,7 +170,7 @@ where
         // joining of simulation bodies into a given overlap group.
         slice.par_sort_unstable_by(&coord_cmp);
         // Unset previous overlap markers as to find new overlap groups for the provided axis. This is okay to
-        // do here as the previous over lap groups has already been pulled out into a slice at this point.
+        // do here as the previous overlap groups have already been pulled out into a slice at this point.
         slice.iter_mut().for_each(|a| a.overlap_marker = None);
         num_groups = mark_overlapping_groups_axis_slice(slice, num_groups, &accessor);
     }
@@ -148,6 +186,14 @@ where
     num_groups
 }
 
+/// Retain only overlap groups which contain at least one satellite object.
+///
+/// ### Arguments
+/// * 'sim_bodies' - Simulation bodies as grouped into final overlapping sets.
+///
+/// ### Return
+///     True if at least on overlap group contains a satellite object, false otherwise.
+///
 fn keep_only_satellite_intersection_groups(sim_bodies: &mut [SimobjT]) -> bool {
     let mut sat_group_nums = HashSet::new();
     for slice in sim_bodies.chunk_by_mut(|a, b| a.overlap_marker == b.overlap_marker) {
@@ -184,6 +230,21 @@ fn keep_only_satellite_intersection_groups(sim_bodies: &mut [SimobjT]) -> bool {
     !sat_group_nums.is_empty()
 }
 
+/// Main collision set searching function. This function uses dimensional reduction on coordinate
+/// bounding boxes to find groups of simulation objects which may intersect one another.
+///
+/// ### Post-Conditions
+///     Objects within 'sim_bodies' have been marked as belonging to a collision set using the
+///     'overlap_marker' attribute. 'sim_bodies' is also sorted by the 'overlap_marker' attribute
+///     in ascending order.    
+///
+/// ### Arguments
+/// * 'sim_bodies' - Simulation bodies to be grouped into overlapping sets.
+/// * 'check_only_satellites' - Flag used to indicate only overlap groups with a satellite should be retained.
+///
+/// ### Return
+///     True if a valid collision set is found, false otherwise.
+///
 pub fn find_collision_set(sim_bodies: &mut [SimobjT], check_only_satellites: bool) -> bool {
     // Place all objects within the same marker group initially (1) as the set has yet
     // to be reduced into discrete groups.
@@ -238,6 +299,18 @@ pub fn find_collision_set(sim_bodies: &mut [SimobjT], check_only_satellites: boo
     true
 }
 
+/// Search for the approximate shortest distance between two lines.
+///
+/// ### Arguments
+/// * 'l1' - Line one to be searched.
+/// * 'l2' - Line two to be searched.
+///
+/// ### Return
+///     Tuple containing the following values.
+///     (f64 - min_dist, Minimum distance found between the two lines.
+///      Array3d, Location along l1 which acts as the point for min_dist.
+///      Array3d, Location along l2 which acts as the point for min_dist.)
+///
 fn line_line_n_point_dist(
     l1: (&Array3d, &Array3d),
     l2: (&Array3d, &Array3d),
@@ -294,6 +367,16 @@ fn line_line_n_point_dist(
     }
 }
 
+/// Given a collision group, check each object within a group for intersections with
+/// other members of the group.
+///
+/// ### Arguments
+/// * 'sim_bodies' - Simulation bodies which are all in the same collision set.
+/// * 'current_step_count' - Current simulation step of the main simulation.
+///
+/// ### Return
+///     Vector of intersection results from the intersection checking.
+///
 pub fn find_body_intersections(
     sim_bodies: &[SimobjT],
     current_step_count: u64,
