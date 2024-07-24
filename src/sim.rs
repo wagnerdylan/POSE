@@ -6,6 +6,7 @@ use crate::collision::{
 };
 use crate::environment::Environment;
 use crate::perturb;
+use crate::types::l2_norm;
 use crate::{
     input,
     output::{self},
@@ -13,6 +14,29 @@ use crate::{
 };
 use rayon::prelude::*;
 use std::slice;
+
+/// Mark a given simulation object for deletion if the object has dipped
+/// below the surface of the SOI body. Objects marked by this function may be
+/// culled later on.
+///
+/// ### Arguments
+/// * 'sim_obj' - Simulation object to be checked for deletion.
+/// * 'env' - Simulation environment which matches the point in time in which sim_obj exists.
+///
+pub fn check_soi_intersection(sim_obj: &mut SimobjT, env: &Environment) {
+    let soi_radius = {
+        match sim_obj.state.soi {
+            crate::bodies::solar_model::Solarobj::Sun => env.sun.attr.eqradius,
+            crate::bodies::solar_model::Solarobj::Earth => env.earth.attr.eqradius,
+            crate::bodies::solar_model::Solarobj::Moon => env.moon.attr.eqradius,
+        }
+    };
+
+    let distance_to_soi_body = l2_norm(&(sim_obj.state.coords));
+    if distance_to_soi_body < soi_radius {
+        sim_obj.marked_for_deletion_on_step = Some(env.step_count);
+    }
+}
 
 /// Main function for calculating simulation object propagations.
 ///
@@ -65,7 +89,12 @@ fn propagate_simulation_objects(
         // Save previous solar ecliptic coordinates for intersection calculations.
         sim_obj.state.previous_coords = sim_obj.state.coords;
 
+        // Update derived coordinates to decouple env update call order.
+        sim_obj.state.coord_helio = env.calculate_helio_coords(sim_obj);
+        sim_obj.state.coords_fixed = env.calculate_fixed_coords(sim_obj);
+
         env.check_switch_soi(sim_obj);
+        check_soi_intersection(sim_obj, env);
         apply_perturbations(sim_obj, env, runtime_params.sim_time_step as f64);
 
         // Update derived coordinates after object propagations have been applied.
@@ -259,7 +288,7 @@ fn run_collision_check(
     // collision should be the same.
 }
 
-fn should_run_collision_check(
+fn should_run_sim_reverse_logic(
     current_env: &Environment,
     previous_env: &Environment,
     runtime_params: &input::RuntimeParameters,
@@ -308,7 +337,7 @@ pub fn simulate(
 
         // Check for simulation object collisions. Normal simulation state is restored after this
         // logic is run.
-        if should_run_collision_check(&env, &previous_env, &runtime_params) {
+        if should_run_sim_reverse_logic(&env, &previous_env, &runtime_params) {
             run_collision_check(
                 &env,
                 &mut previous_env,
