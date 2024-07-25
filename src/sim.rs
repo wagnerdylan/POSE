@@ -71,6 +71,11 @@ pub fn apply_perturbations(sim_obj: &mut SimobjT, env: &Environment, step_time_s
     sim_obj.state.coords = updated_sim_obj_coords;
 }
 
+fn update_derived_coords(sim_obj: &mut SimobjT, env: &Environment) {
+    sim_obj.state.coord_helio = env.calculate_helio_coords(sim_obj);
+    sim_obj.state.coords_fixed = env.calculate_fixed_coords(sim_obj);
+}
+
 /// Main propagation function for simulation objects.
 /// This function modifies state of each simulation object in-place.
 ///
@@ -90,8 +95,7 @@ fn propagate_simulation_objects(
         sim_obj.state.previous_coords = sim_obj.state.coords;
 
         // Update derived coordinates to decouple env update call order.
-        sim_obj.state.coord_helio = env.calculate_helio_coords(sim_obj);
-        sim_obj.state.coords_fixed = env.calculate_fixed_coords(sim_obj);
+        update_derived_coords(sim_obj, env);
 
         env.check_switch_soi(sim_obj);
         check_soi_intersection(sim_obj, env);
@@ -99,8 +103,7 @@ fn propagate_simulation_objects(
 
         // Update derived coordinates after object propagations have been applied.
         // After this update all object coordinates will be in-sync.
-        sim_obj.state.coord_helio = env.calculate_helio_coords(sim_obj);
-        sim_obj.state.coords_fixed = env.calculate_fixed_coords(sim_obj);
+        update_derived_coords(sim_obj, env);
     });
 }
 
