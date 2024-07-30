@@ -3,9 +3,9 @@ use chrono::{DateTime, Duration, Utc};
 use crate::{
     bodies::{
         self,
-        common::days_since_j2000,
+        common::{days_since_j2000, spice_ephemeris_time},
         sim_object::SimobjT,
-        solar_model::{Earth, KeplerModel, Moon, Solarobj, Sun},
+        solar_model::{Earth, Moon, OrbitModel, Solarobj, Sun},
     },
     input::{EnvInitData, RuntimeParameters},
     output,
@@ -38,20 +38,17 @@ impl Environment {
     /// Updates the solar system objects within the environment.
     ///
     /// ### Argument
-    /// * 'up_day' - New datetime of simulation.
+    /// * 'datetime' - New datetime of simulation.
     ///
-    fn update_solar_objs(&mut self, up_day: &DateTime<chrono::Utc>) {
-        let new_day = days_since_j2000(up_day);
+    fn update_solar_objs(&mut self, datetime: &DateTime<chrono::Utc>) {
+        let et = spice_ephemeris_time(datetime);
 
         // Update each solar body within simulation
-        self.sun.model.state.coords.ahead_coords =
-            self.sun.model.ecliptic_cartesian_coords(new_day);
-        self.earth.model.state.coords.ahead_coords =
-            self.earth.model.ecliptic_cartesian_coords(new_day);
+        self.sun.model.state.coords.ahead_coords = self.sun.model.ecliptic_cartesian_coords(et);
+        self.earth.model.state.coords.ahead_coords = self.earth.model.ecliptic_cartesian_coords(et);
         // Calculate new location for moon and convert to heliocentric coords
-        self.moon.model.state.coords.ahead_coords =
-            self.moon.model.ecliptic_cartesian_coords(new_day)
-                + self.earth.model.state.coords.ahead_coords;
+        self.moon.model.state.coords.ahead_coords = self.moon.model.ecliptic_cartesian_coords(et)
+            + self.earth.model.state.coords.ahead_coords;
     }
 
     /// Hard update on all solar objects within the simulation.
@@ -172,11 +169,11 @@ impl Environment {
     }
 
     pub fn new(runtime_params: &RuntimeParameters, init_data: EnvInitData) -> Environment {
-        let day = days_since_j2000(&runtime_params.date);
+        let et = spice_ephemeris_time(&runtime_params.date);
 
-        let sun_precalc = Sun::new();
-        let earth_precalc = Earth::new(day, &init_data.earth_sw);
-        let moon_precalc = Moon::new(day, &earth_precalc.model.state.coords.current_coords);
+        let sun_precalc = Sun::new(et);
+        let earth_precalc = Earth::new(et, &init_data.earth_sw);
+        let moon_precalc = Moon::new(et);
 
         let mut env = Environment {
             start_time: runtime_params.date,

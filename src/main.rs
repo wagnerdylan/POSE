@@ -2,7 +2,7 @@
 //! POSE - Parallel Orbital Simulation Environment
 //!
 
-use bodies::sim_object::SimobjT;
+use bodies::{sim_object::SimobjT, solar_model::furnish_spice};
 use clap::Parser;
 
 #[macro_use]
@@ -44,18 +44,15 @@ fn init_simulation_objects(env: &environment::Environment, sim_objs: &mut Vec<Si
     }
 }
 
-fn furnish_spice() {
-    spice::furnsh("");
-}
-
 fn main() {
     let sim_params = input::SimulationParameters::parse();
+    // furnish_spice must be called before initializing solar objects.
+    furnish_spice();
 
     let (mut sim_bodies, runtime_params, env_init) = input::collect_simulation_inputs(&sim_params);
     let env = environment::Environment::new(&runtime_params, env_init);
 
     init_simulation_objects(&env, &mut sim_bodies);
-    furnish_spice();
 
     let output_controller = Box::new(output::csv_output::CSVController::new(
         sim_params.output_dir.as_str(),
