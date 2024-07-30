@@ -75,11 +75,34 @@ pub struct Moon {
 }
 
 pub trait OrbitModel {
+    /// Compute positions X, Y and Z along with velocity values VX, VY and VZ.
+    ///
+    /// ### Arguments
+    /// * 'et' - Epoch time in seconds from J2000.
+    ///
+    /// ### Return
+    ///     A tuple of Array3d objects containing position and velocity respectfully.
+    ///
     fn ecliptic_cartesian_coords(&self, et: f64) -> (Array3d, Array3d);
 
+    /// Update internal model state within the object following the epoch time
+    /// parameter.
+    ///
+    /// ### Arguments
+    /// * 'et' - Epoch time in seconds from J2000.
+    ///
     fn update_position_velocity(&mut self, et: f64);
 }
 
+/// Convert three values of a given slice to an Array3d object and
+/// scale the output from km to m to match what POSE uses as unit scaling.
+///
+/// ### Arguments
+/// * 'value' - Slice of three values to be packed and scaled.
+///
+/// ### Return
+///     The final scaled and packed Array3d object.
+///
 fn scale_and_pack_spk(value: &[f64]) -> Array3d {
     const KM_TO_M: f64 = 1000.0;
     Array3d {
@@ -89,10 +112,23 @@ fn scale_and_pack_spk(value: &[f64]) -> Array3d {
     }
 }
 
+/// Calculate position and velocity for a specified solar body in the
+/// J2000 frame using the Sun as the observer.
+///
+/// ### Arguments
+/// * 'target' - String containing the name of the body in which to calculate position and velocity.
+///              This string must be of a variant in which SPICE may accept.
+/// * 'et' - Epoch time in seconds from J2000.
+///
+/// ### Return
+///     A tuple of Array3d objects containing position and velocity respectfully.
+///
 fn spk_j2000_sun_ezr(target: &str, et: f64) -> (Array3d, Array3d) {
     let (output, _) = spice::spkezr(target, et, "J2000", "NONE", "SUN");
     (
+        // The first three elements of the spkezr function output are cartesian coordinates X, Y and Z.
         scale_and_pack_spk(&output[0..3]),
+        // The last three elements of the spkezr function output are velocity values VX, VY and VZ.
         scale_and_pack_spk(&output[3..6]),
     )
 }

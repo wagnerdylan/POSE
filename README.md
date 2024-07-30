@@ -13,6 +13,9 @@ TODO add more info.
 llvm must be installed on the build system in order to build POSE. On Windows, llvm may be installed via choco using the following command: 
 `choco install llvm`
 
+NASA C-SPICE must also be installed on the host machine following the instructions provided [here](https://naif.jpl.nasa.gov/naif/toolkit_C.html). The environment variable
+`CSPICE_DIR` must be set to the top-level directory of the SPICE directory in-order to pull in required SPICE libs.
+
 On install of llvm (if needed) pose may be built using cargo such as the following: `cargo build --release`
 
 ## Basic Sanity Checking
