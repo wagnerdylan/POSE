@@ -9,11 +9,10 @@ use crate::{input::SwIndex, types::LLH};
 
 use super::common::ct2lst;
 
-const METERS_PER_ASTRONOMICAL_UNIT: f64 = 1.4959787e+11;
-const METERS_PER_EARTH_EQUATORIAL_RADIUS: f64 = 6378140.0;
-const EARTH_RADII_PER_ASTRONOMICAL_UNIT: f64 =
-    METERS_PER_ASTRONOMICAL_UNIT / METERS_PER_EARTH_EQUATORIAL_RADIUS; // 23454.78
-const AU_METER: f64 = 1.496e+11;
+pub fn furnish_spice() {
+    spice::furnsh("data/spice/spk/planets/de440s.bsp");
+    spice::furnsh("data/spice/lsk/latest_leapseconds.tls");
+}
 
 #[derive(Display, Clone, Deserialize, Serialize, Default, PartialEq)]
 #[serde(tag = "type")]
@@ -36,374 +35,146 @@ pub struct SolarAttr {
 
 #[derive(Clone)]
 pub struct ModelState {
-    pub coords: SolarobjCoords,
+    pub coords: Array3d,
     pub velocity: Array3d,
 }
 
 #[derive(Clone)]
-#[allow(dead_code)]
-pub struct PlanetPSModel {
-    pub state: ModelState,
-    solartype: Solarobj,
-    // See  http://www.stjarnhimlen.se/comp/ppcomp.html#4
-    n0: f64,
-    nc: f64, // N0 = longitude of the ascending node (deg).  Nc = rate of change in deg/day
-    i0: f64,
-    ic: f64, // inclination to the ecliptic (deg)
-    w0: f64,
-    wc: f64, // argument of perihelion (deg)
-    a0: f64,
-    ac: f64, // semi-major axis, or mean distance from Sun (AU)
-    e0: f64,
-    ec: f64, // eccentricity (0=circle, 0..1=ellipse, 1=parabola)
-    m0: f64,
-    mc: f64, // M0 = mean anomaly  (deg) (0 at perihelion; increases uniformly with time).  Mc ("mean motion") = rate of change
-    mag_base: f64,
-    mag_phase_factor: f64,
-    mag_nonlinear_factor: f64,
-    mag_nonlinear_exponent: f64,
-}
-
-#[derive(Clone)]
-pub struct EarthModel {
-    pub state: ModelState,
-}
-
-#[derive(Clone)]
-pub struct SunModel {
+pub struct SpiceSunModel {
     pub state: ModelState,
 }
 
 #[derive(Clone)]
 pub struct Sun {
-    pub model: SunModel,
+    pub model: SpiceSunModel,
     pub attr: &'static SolarAttr,
+}
+
+#[derive(Clone)]
+pub struct SpiceEarthModel {
+    pub state: ModelState,
 }
 
 #[derive(Clone)]
 pub struct Earth {
     sw_indices: Vec<SwIndex>, // Space Weather Indices.
     current_sw: usize,
-    pub model: EarthModel,
+    pub model: SpiceEarthModel,
     pub attr: &'static SolarAttr,
 }
 
 #[derive(Clone)]
+pub struct SpiceMoonModel {
+    pub state: ModelState,
+}
+
+#[derive(Clone)]
 pub struct Moon {
-    pub model: PlanetPSModel,
+    pub model: SpiceMoonModel,
     pub attr: &'static SolarAttr,
 }
 
-/// Provides utilities for calculating planetary bodies with a Kepler model.
-/// Most of the code used to calculate planetary body coordinates was referenced
-/// from source for http://cosinekitty.com/solar_system.html. See, http://cosinekitty.com/astronomy.js.
-mod kepler_utilities {
-    use crate::types::Array3d;
-    use std::f64::{self, consts};
-
-    use super::{PlanetPSModel, EARTH_RADII_PER_ASTRONOMICAL_UNIT};
-
-    /// Calculate the eccentric anomaly for a given body.
-    /// ### Arguments
-    /// * 'e' - TODO
-    /// * 'm' - TODO
-    ///
-    /// ### Returns
-    ///      The eccentric anomaly for the provided input parameters.
-    pub fn eccentric_anomaly(e: f64, m: f64) -> f64 {
-        let deg_from_rad = 180f64 / consts::PI;
-        let mut ecc: f64 = m + (e * sin_deg!(m) * (1f64 + (e * cos_deg!(m))));
-
-        let mut iters = 0;
-        loop {
-            let f: f64 =
-                ecc - (ecc - (deg_from_rad * e * sin_deg!(ecc)) - m) / (1f64 - e * cos_deg!(ecc));
-            let error = (f - ecc).abs();
-            ecc = f;
-
-            if error < 0.1e-8 || iters > 30 {
-                break;
-            }
-
-            iters += 1;
-        }
-
-        ecc
-    }
-
-    /// Calculates the mean anomaly for the Sun.
-    fn mean_anomaly_of_sun(day: f64) -> f64 {
-        356.0470 + (0.9856002585 * day)
-    }
-
-    /// Calculates the argument of perihelion for the Sun.
-    fn sun_argument_of_perihelion(day: f64) -> f64 {
-        282.9404 + (4.70935e-5 * day)
-    }
-
-    /// Calculates the ecliptic latitude and longitude for the given inputs.
+pub trait OrbitModel {
+    /// Compute positions X, Y and Z along with velocity values VX, VY and VZ.
     ///
     /// ### Arguments
-    /// * 'xh' - Cartesian coordinate in x dimension.
-    /// * 'yh' - Cartesian coordinate in y dimension.
-    /// * 'zh' - Cartesian coordinate in z dimension.
+    /// * 'et' - Epoch time in seconds from J2000.
     ///
     /// ### Return
-    ///      The latitude and longitude as a tuple.
-    fn ecliptic_lat_lon(xh: f64, yh: f64, zh: f64) -> (f64, f64) {
-        (
-            atan2_deg!(yh, xh),
-            atan2_deg!(zh, (xh * xh + yh * yh).sqrt()),
-        )
-    }
+    ///     A tuple of Array3d objects containing position and velocity respectfully.
+    ///
+    fn ecliptic_cartesian_coords(&self, et: f64) -> (Array3d, Array3d);
 
-    pub fn lunar_pertub(body: &PlanetPSModel, xh: f64, yh: f64, zh: f64, day: f64) -> Array3d {
-        let ms = mean_anomaly_of_sun(day); // mean anomaly of Sun
-        let ws = sun_argument_of_perihelion(day); // Sun's argument of perihelion
-        let ls = ms + ws; // mean longitude of Sun
-
-        let mm = body.mean_anomaly(day); // Moon's mean anomaly
-        let nm = body.node_longitude(day); // longitude of Moon's node
-        let wm = body.perihelion(day); // Moon's argument of perihelion
-        let lm = mm + wm + nm; // Mean longitude of the Moon
-
-        let d = lm - ls; // mean elongation of the Moon
-        let f = lm - nm; // argument of latitude for the Moon
-
-        let delta_long = -1.274 * sin_deg!(mm - 2f64*d)       +   // the Evection
-            0.658 * sin_deg!(2f64*d)            -   // the Variation
-            0.186 * sin_deg!(ms)                -   // the Yearly Equation
-            0.059 * sin_deg!(2f64*mm - 2f64*d)  -
-            0.057 * sin_deg!(mm - 2f64*d + ms)  +
-            0.053 * sin_deg!(mm + 2f64*d)       +
-            0.046 * sin_deg!(2f64*d - ms)       +
-            0.041 * sin_deg!(mm - ms)           -
-            0.035 * sin_deg!(d)                 -   // the Parallactic Equation
-            0.031 * sin_deg!(mm + ms)           -
-            0.015 * sin_deg!(2f64*f - 2f64*d)
-            + 0.011 * sin_deg!(mm - 4f64 * d);
-
-        let delta_lat = -0.173 * sin_deg!(f - 2f64 * d)
-            - 0.055 * sin_deg!(mm - f - 2f64 * d)
-            - 0.046 * sin_deg!(mm + f - 2f64 * d)
-            + 0.033 * sin_deg!(f + 2f64 * d)
-            + 0.017 * sin_deg!(2f64 * mm + f);
-
-        let delta_radius = -0.58 * cos_deg!(mm - 2f64 * d) - 0.46 * cos_deg!(2f64 * d);
-
-        let (mut lonecl, mut latecl) = ecliptic_lat_lon(xh, yh, zh);
-
-        let mut r = (xh * xh + yh * yh + zh * zh).sqrt();
-
-        lonecl += delta_long;
-        latecl += delta_lat;
-        r += delta_radius / EARTH_RADII_PER_ASTRONOMICAL_UNIT;
-
-        let coslon = cos_deg!(lonecl);
-        let sinlon = sin_deg!(lonecl);
-        let coslat = cos_deg!(latecl);
-        let sinlat = sin_deg!(latecl);
-
-        let xp = r * coslon * coslat;
-        let yp = r * sinlon * coslat;
-        let zp = r * sinlat;
-
-        Array3d {
-            x: xp,
-            y: yp,
-            z: zp,
-        }
-    }
-}
-
-pub trait KeplerModel {
-    fn ecliptic_cartesian_coords(&self, day: f64) -> Array3d;
-
-    fn perturb(&self, x: f64, y: f64, z: f64, _day: f64) -> Array3d {
-        Array3d { x, y, z }
-    }
-}
-
-#[derive(Clone, Copy, Default)]
-pub struct SolarobjCoords {
-    pub ahead_coords: Array3d,
-    pub current_coords: Array3d, // Initial coords
-    pub behind_coords: Array3d,  // Initial coords
-}
-
-impl SolarobjCoords {
-    /// Calculate linear interpolation of behind and ahead time at interp_point.
-    /// Sets the current coords to the result.
+    /// Update internal model state within the object following the epoch time
+    /// parameter.
     ///
     /// ### Arguments
-    /// * 'interp_point' - Point between 0-1 where the interp is set
+    /// * 'et' - Epoch time in seconds from J2000.
     ///
-    pub fn lerp_set(&mut self, interp_point: f64) {
-        // Precise method, which guarantees v = v1 when t = 1.
-        self.current_coords =
-            ((1f64 - interp_point) * self.behind_coords) + interp_point * self.ahead_coords;
-    }
+    fn update_position_velocity(&mut self, et: f64);
+}
 
-    /// Calculate the velocity of the solar obj from behind to ahead coords.
-    ///
-    /// ### Arguments
-    /// * 'step_time_s' - Sim solar step time in seconds
-    ///
-    /// ### Returns
-    /// The velocity of the solar obj
-    ///
-    pub fn calc_velocity_full_range(&self, step_time_s: f64) -> Array3d {
-        (self.ahead_coords - self.behind_coords) / step_time_s
-    }
-
-    /// Calculate the velocity of the solar obj from behind to ahead coords.
-    ///
-    /// ### Arguments
-    /// * 'step_time_s' - Sim solar step time in seconds
-    /// * 'relative' - Solar obj relative coords
-    ///
-    /// ### Returns
-    /// The velocity of the solar obj
-    ///
-    pub fn calc_velocity_relative_full_range(
-        &self,
-        relative: &SolarobjCoords,
-        step_time_s: f64,
-    ) -> Array3d {
-        ((self.ahead_coords - relative.ahead_coords)
-            - (self.behind_coords - relative.behind_coords))
-            / step_time_s
+/// Convert three values of a given slice to an Array3d object and
+/// scale the output from km to m to match what POSE uses as unit scaling.
+///
+/// ### Arguments
+/// * 'value' - Slice of three values to be packed and scaled.
+///
+/// ### Return
+///     The final scaled and packed Array3d object.
+///
+fn scale_and_pack_spk(value: &[f64]) -> Array3d {
+    const KM_TO_M: f64 = 1000.0;
+    Array3d {
+        x: *value.get(0).unwrap() * KM_TO_M,
+        y: *value.get(1).unwrap() * KM_TO_M,
+        z: *value.get(2).unwrap() * KM_TO_M,
     }
 }
 
-impl KeplerModel for PlanetPSModel {
-    fn ecliptic_cartesian_coords(&self, day: f64) -> Array3d {
-        // Default impl
-        let a = self.a0 + (day * self.ac);
-        let e = self.e0 + (day * self.ec);
-        let m_u = self.m0 + (day * self.mc);
-        let n_u = self.n0 + (day * self.nc);
-        let w = self.w0 + (day * self.wc);
-        let i = self.i0 + (day * self.ic);
-        let ecc = kepler_utilities::eccentric_anomaly(e, m_u);
+/// Calculate position and velocity for a specified solar body in the
+/// J2000 frame using the Sun as the observer.
+///
+/// ### Arguments
+/// * 'target' - String containing the name of the body in which to calculate position and velocity.
+///              This string must be of a variant in which SPICE may accept.
+/// * 'et' - Epoch time in seconds from J2000.
+///
+/// ### Return
+///     A tuple of Array3d objects containing position and velocity respectfully.
+///
+fn spk_j2000_sun_ezr(target: &str, et: f64) -> (Array3d, Array3d) {
+    let (output, _) = spice::spkezr(target, et, "J2000", "NONE", "SUN");
+    (
+        // The first three elements of the spkezr function output are cartesian coordinates X, Y and Z.
+        scale_and_pack_spk(&output[0..3]),
+        // The last three elements of the spkezr function output are velocity values VX, VY and VZ.
+        scale_and_pack_spk(&output[3..6]),
+    )
+}
 
-        let xv = a * (cos_deg!(ecc) - e);
-        let yv = a * ((1.0f64 - e * e).sqrt() * sin_deg!(ecc));
-
-        let v = atan2_deg!(yv, xv); // True anomaly in degrees: the angle from perihelion of the body as seen by the Sun.
-        let r = (xv * xv + yv * yv).sqrt(); // Distance from the Sun to the planet in AU
-
-        let cos_n = cos_deg!(n_u);
-        let sin_n = sin_deg!(n_u);
-        let cosi = cos_deg!(i);
-        let sini = sin_deg!(i);
-        let cos_vw = cos_deg!(v + w);
-        let sin_vw = sin_deg!(v + w);
-
-        // Now we are ready to calculate (unperturbed) ecliptic cartesian heliocentric coordinates.
-        let mut xh = r * (cos_n * cos_vw - sin_n * sin_vw * cosi);
-        let mut yh = r * (sin_n * cos_vw + cos_n * sin_vw * cosi);
-        let mut zh = r * sin_vw * sini;
-
-        // Convert AU to Meters
-        xh *= AU_METER;
-        yh *= AU_METER;
-        zh *= AU_METER;
-
-        self.perturb(xh, yh, zh, day)
+impl OrbitModel for SpiceSunModel {
+    fn ecliptic_cartesian_coords(&self, et: f64) -> (Array3d, Array3d) {
+        spk_j2000_sun_ezr("SUN", et)
     }
 
-    /// Calculates additional perturbations on top of main heliocentric position calculation.
-    /// Matches PlanetPS bodies using the type enum.
-    ///  
-    /// ### Arguments
-    ///  * 'x' - X coord
-    ///  * 'y' - Y coord
-    ///  * 'z' - Z coord
-    ///  * 'day' - Day value
-    ///
-    /// ### Returns
-    ///      Cartesian coords with the added perturbations.
-    ///
-    fn perturb(&self, x: f64, y: f64, z: f64, day: f64) -> Array3d {
-        match &self.solartype {
-            Solarobj::Moon => kepler_utilities::lunar_pertub(self, x, y, z, day),
-            _ => Array3d { x, y, z },
-        }
+    fn update_position_velocity(&mut self, et: f64) {
+        let (pos, vel) = self.ecliptic_cartesian_coords(et);
+        self.state.coords = pos;
+        self.state.velocity = vel;
     }
 }
 
-impl PlanetPSModel {
-    fn mean_anomaly(&self, day: f64) -> f64 {
-        self.m0 + (day * self.mc)
+impl OrbitModel for SpiceEarthModel {
+    fn ecliptic_cartesian_coords(&self, et: f64) -> (Array3d, Array3d) {
+        spk_j2000_sun_ezr("EARTH", et)
     }
 
-    fn node_longitude(&self, day: f64) -> f64 {
-        self.n0 + (day * self.nc)
-    }
-
-    fn perihelion(&self, day: f64) -> f64 {
-        self.w0 + (day * self.wc)
+    fn update_position_velocity(&mut self, et: f64) {
+        let (pos, vel) = self.ecliptic_cartesian_coords(et);
+        self.state.coords = pos;
+        self.state.velocity = vel;
     }
 }
 
-impl KeplerModel for EarthModel {
-    /// Calculate the position of Earth relative to the Sun.
-    /// Calls function earth_ecliptic_cartesian_coords in kepler_utilities
-    ///
-    ///  ### Arguments
-    /// * 'day' - Day as an f64
-    ///
-    /// ### Return
-    ///     The coordinates of Earth at the provided time.
-    fn ecliptic_cartesian_coords(&self, day: f64) -> Array3d {
-        let d = day - 1.5;
-        // Julian centuries since J2000.0
-        let t = d / 36525.0;
-        // Sun's mean longitude, in degrees
-        let l_0 = 280.46645 + (36000.76983 * t) + (0.0003032 * t * t);
-        // Sun's mean anomaly, in degrees
-        let m_0 = 357.52910 + (35999.05030 * t) - (0.0001559 * t * t) - (0.00000048 * t * t * t);
-
-        let c = // Sun's equation of center in degrees
-            (1.914600 - 0.004817 * t - 0.000014 * t * t) * sin_deg!(m_0) +
-                (0.01993 - 0.000101 * t) * sin_deg!(2f64 * m_0) +
-                0.000290 * sin_deg!(3f64 * m_0);
-
-        let ls = l_0 + c; // true elliptical longitude of Sun
-
-        // The eccentricity of the Earth's orbit.
-        let e = 0.016708617 - t * (0.000042037 + (0.0000001236 * t));
-        // distance from Sun to Earth in astronomical units (AU)
-        let distance_in_au = (1.000001018 * (1f64 - e * e)) / (1f64 + e * cos_deg!(m_0 + c));
-        let mut x = -distance_in_au * cos_deg!(ls);
-        let mut y = -distance_in_au * sin_deg!(ls);
-
-        // Convert AU to Meters
-        x *= AU_METER;
-        y *= AU_METER;
-
-        // the Earth's center is always on the plane of the ecliptic (z=0), by definition!
-        Array3d { x, y, z: 0f64 }
+impl OrbitModel for SpiceMoonModel {
+    fn ecliptic_cartesian_coords(&self, et: f64) -> (Array3d, Array3d) {
+        spk_j2000_sun_ezr("MOON", et)
     }
-}
 
-impl KeplerModel for SunModel {
-    fn ecliptic_cartesian_coords(&self, _day: f64) -> Array3d {
-        Array3d {
-            x: 0f64,
-            y: 0f64,
-            z: 0f64,
-        }
+    fn update_position_velocity(&mut self, et: f64) {
+        let (pos, vel) = self.ecliptic_cartesian_coords(et);
+        self.state.coords = pos;
+        self.state.velocity = vel;
     }
 }
 
 impl Sun {
-    pub fn new() -> Self {
-        Sun {
-            model: SunModel {
+    pub fn new(et: f64) -> Self {
+        let mut sun_body = Sun {
+            model: SpiceSunModel {
                 state: ModelState {
-                    coords: SolarobjCoords::default(),
+                    coords: Array3d::default(),
                     velocity: Array3d::default(),
                 },
             },
@@ -412,7 +183,10 @@ impl Sun {
                 mass: 1.9891e30,
                 obliquity: 0.0,
             },
-        }
+        };
+        sun_body.model.update_position_velocity(et);
+
+        sun_body
     }
 }
 
@@ -514,15 +288,15 @@ impl Earth {
         }
     }
 
-    pub fn new(day: f64, sw_indices: &Vec<SwIndex>) -> Self {
+    pub fn new(et: f64, sw_indices: &Vec<SwIndex>) -> Self {
         let mut sw_indices_clone = sw_indices.clone();
         // Ensure the indices list is sorted as binary search will be done on this data.
         sw_indices_clone.sort_by_key(|k| k.0);
 
         let mut earth_body = Self {
-            model: EarthModel {
+            model: SpiceEarthModel {
                 state: ModelState {
-                    coords: SolarobjCoords::default(),
+                    coords: Array3d::default(),
                     velocity: Array3d::default(),
                 },
             },
@@ -534,41 +308,20 @@ impl Earth {
                 obliquity: 23.44,
             },
         };
-
-        let initial_coords = earth_body.model.ecliptic_cartesian_coords(day);
-        earth_body.model.state.coords.ahead_coords = initial_coords;
-        earth_body.model.state.coords.current_coords = initial_coords;
-        earth_body.model.state.coords.behind_coords = initial_coords;
+        earth_body.model.update_position_velocity(et);
 
         earth_body
     }
 }
 
 impl Moon {
-    pub fn new(day: f64, earth_coords: &Array3d) -> Self {
+    pub fn new(et: f64) -> Self {
         let mut moon_body = Self {
-            model: PlanetPSModel {
-                n0: 125.1228,
-                nc: -0.0529538083,
-                i0: 5.1454,
-                ic: 0.0,
-                w0: 318.0634,
-                wc: 0.1643573223,
-                a0: 60.2666 / EARTH_RADII_PER_ASTRONOMICAL_UNIT,
-                ac: 0.0,
-                e0: 0.054900,
-                ec: 0.0,
-                m0: 115.3654,
-                mc: 13.0649929509,
-                mag_base: 0.23,
-                mag_phase_factor: 0.026,
-                mag_nonlinear_factor: 4.0e-9,
-                mag_nonlinear_exponent: 4f64,
+            model: SpiceMoonModel {
                 state: ModelState {
-                    coords: SolarobjCoords::default(),
-                    velocity: Array3d::default(), // Zero until sim update
+                    coords: Array3d::default(),
+                    velocity: Array3d::default(),
                 },
-                solartype: Solarobj::Moon,
             },
             attr: &SolarAttr {
                 eqradius: 1.7381e6,
@@ -576,12 +329,7 @@ impl Moon {
                 obliquity: 1.5424,
             },
         };
-
-        // Calculate the location of the moon and convert to heliocentric coords
-        let initial_coords = moon_body.model.ecliptic_cartesian_coords(day) + earth_coords;
-        moon_body.model.state.coords.ahead_coords = initial_coords;
-        moon_body.model.state.coords.current_coords = initial_coords;
-        moon_body.model.state.coords.behind_coords = initial_coords;
+        moon_body.model.update_position_velocity(et);
 
         moon_body
     }

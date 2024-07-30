@@ -12,19 +12,15 @@ use super::common::{newton_gravitational_field, newton_gravitational_field_third
 
 fn calculate_solar_gravity_perturbation(sim_obj: &mut SimobjT, env: &Environment) -> Array3d {
     let (r_0, r_tb, ob_0) = match sim_obj.state.soi {
-        Solarobj::Sun => (
-            env.sun.model.state.coords.current_coords,
-            None,
-            env.sun.attr.obliquity,
-        ),
+        Solarobj::Sun => (env.sun.model.state.coords, None, env.sun.attr.obliquity),
         Solarobj::Earth => (
-            env.earth.model.state.coords.current_coords,
-            Some(env.sun.model.state.coords.current_coords),
+            env.earth.model.state.coords,
+            Some(env.sun.model.state.coords),
             env.earth.attr.obliquity,
         ),
         Solarobj::Moon => (
-            env.moon.model.state.coords.current_coords,
-            Some(env.sun.model.state.coords.current_coords),
+            env.moon.model.state.coords,
+            Some(env.sun.model.state.coords),
             env.moon.attr.obliquity,
         ),
     };

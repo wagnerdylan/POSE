@@ -2,7 +2,7 @@
 //! POSE - Parallel Orbital Simulation Environment
 //!
 
-use bodies::sim_object::SimobjT;
+use bodies::{sim_object::SimobjT, solar_model::furnish_spice};
 use clap::Parser;
 
 #[macro_use]
@@ -17,6 +17,7 @@ extern crate nrlmsise00c;
 extern crate rayon;
 extern crate serde;
 extern crate serde_json;
+extern crate spice;
 extern crate strum;
 extern crate strum_macros;
 
@@ -45,6 +46,8 @@ fn init_simulation_objects(env: &environment::Environment, sim_objs: &mut Vec<Si
 
 fn main() {
     let sim_params = input::SimulationParameters::parse();
+    // furnish_spice must be called before initializing solar objects.
+    furnish_spice();
 
     let (mut sim_bodies, runtime_params, env_init) = input::collect_simulation_inputs(&sim_params);
     let env = environment::Environment::new(&runtime_params, env_init);

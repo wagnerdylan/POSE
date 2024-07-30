@@ -56,18 +56,14 @@ fn calculate_earth_atmospheric_drag_perturbation(
 fn calculate_earth_gravity_perturbation(sim_obj: &mut SimobjT, env: &Environment) -> Array3d {
     let (r_0, r_tb, ob_0) = match sim_obj.state.soi {
         Solarobj::Sun => (
-            env.sun.model.state.coords.current_coords,
-            Some(env.earth.model.state.coords.current_coords),
+            env.sun.model.state.coords,
+            Some(env.earth.model.state.coords),
             env.sun.attr.obliquity,
         ),
-        Solarobj::Earth => (
-            env.earth.model.state.coords.current_coords,
-            None,
-            env.earth.attr.obliquity,
-        ),
+        Solarobj::Earth => (env.earth.model.state.coords, None, env.earth.attr.obliquity),
         Solarobj::Moon => (
-            env.moon.model.state.coords.current_coords,
-            Some(env.earth.model.state.coords.current_coords),
+            env.moon.model.state.coords,
+            Some(env.earth.model.state.coords),
             env.moon.attr.obliquity,
         ),
     };

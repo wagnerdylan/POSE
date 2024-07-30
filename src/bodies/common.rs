@@ -71,6 +71,13 @@ pub fn days_since_j2000(date: &DateTime<Utc>) -> f64 {
     jdconv(date) - JD2000
 }
 
+#[inline]
+pub fn spice_ephemeris_time(date: &DateTime<Utc>) -> f64 {
+    let formatted_time = format!("{}", date.format("%Y %B %d, %H:%M:%S%.f %Z"));
+
+    spice::str2et(formatted_time.as_str())
+}
+
 /// Convert civil time into local mean sidereal time.
 /// Ref: https://idlastro.gsfc.nasa.gov/ftp/pro/astro/ct2lst.pro
 ///
