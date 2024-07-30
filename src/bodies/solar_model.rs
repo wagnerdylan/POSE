@@ -35,7 +35,7 @@ pub struct SolarAttr {
 
 #[derive(Clone)]
 pub struct ModelState {
-    pub coords: SolarobjCoords,
+    pub coords: Array3d,
     pub velocity: Array3d,
 }
 
@@ -75,88 +75,61 @@ pub struct Moon {
 }
 
 pub trait OrbitModel {
-    fn ecliptic_cartesian_coords(&self, et: f64) -> Array3d;
+    fn ecliptic_cartesian_coords(&self, et: f64) -> (Array3d, Array3d);
+
+    fn update_position_velocity(&mut self, et: f64);
 }
 
-#[derive(Clone, Copy, Default)]
-pub struct SolarobjCoords {
-    pub ahead_coords: Array3d,
-    pub current_coords: Array3d,
-    pub behind_coords: Array3d,
-}
-
-impl SolarobjCoords {
-    /// Calculate linear interpolation of behind and ahead time at interp_point.
-    /// Sets the current coords to the result.
-    ///
-    /// ### Arguments
-    /// * 'interp_point' - Point between 0-1 where the interp is set
-    ///
-    pub fn lerp_set(&mut self, interp_point: f64) {
-        // Precise method, which guarantees v = v1 when t = 1.
-        self.current_coords =
-            ((1f64 - interp_point) * self.behind_coords) + interp_point * self.ahead_coords;
-    }
-
-    /// Calculate the velocity of the solar obj from behind to ahead coords.
-    ///
-    /// ### Arguments
-    /// * 'step_time_s' - Sim solar step time in seconds
-    ///
-    /// ### Returns
-    /// The velocity of the solar obj
-    ///
-    pub fn calc_velocity_full_range(&self, step_time_s: f64) -> Array3d {
-        (self.ahead_coords - self.behind_coords) / step_time_s
-    }
-
-    /// Calculate the velocity of the solar obj from behind to ahead coords.
-    ///
-    /// ### Arguments
-    /// * 'step_time_s' - Sim solar step time in seconds
-    /// * 'relative' - Solar obj relative coords
-    ///
-    /// ### Returns
-    /// The velocity of the solar obj
-    ///
-    pub fn calc_velocity_relative_full_range(
-        &self,
-        relative: &SolarobjCoords,
-        step_time_s: f64,
-    ) -> Array3d {
-        ((self.ahead_coords - relative.ahead_coords)
-            - (self.behind_coords - relative.behind_coords))
-            / step_time_s
-    }
-}
-
-fn scale_and_pack_spkpos(position: [f64; 3]) -> Array3d {
+fn scale_and_pack_spk(value: &[f64]) -> Array3d {
     const KM_TO_M: f64 = 1000.0;
     Array3d {
-        x: *position.get(0).unwrap() * KM_TO_M,
-        y: *position.get(1).unwrap() * KM_TO_M,
-        z: *position.get(2).unwrap() * KM_TO_M,
+        x: *value.get(0).unwrap() * KM_TO_M,
+        y: *value.get(1).unwrap() * KM_TO_M,
+        z: *value.get(2).unwrap() * KM_TO_M,
     }
+}
+
+fn spk_j2000_sun_ezr(target: &str, et: f64) -> (Array3d, Array3d) {
+    let (output, _) = spice::spkezr(target, et, "J2000", "NONE", "SUN");
+    (
+        scale_and_pack_spk(&output[0..3]),
+        scale_and_pack_spk(&output[3..6]),
+    )
 }
 
 impl OrbitModel for SpiceSunModel {
-    fn ecliptic_cartesian_coords(&self, et: f64) -> Array3d {
-        let (position, _) = spice::spkpos("SUN", et, "J2000", "NONE", "SUN");
-        scale_and_pack_spkpos(position)
+    fn ecliptic_cartesian_coords(&self, et: f64) -> (Array3d, Array3d) {
+        spk_j2000_sun_ezr("SUN", et)
+    }
+
+    fn update_position_velocity(&mut self, et: f64) {
+        let (pos, vel) = self.ecliptic_cartesian_coords(et);
+        self.state.coords = pos;
+        self.state.velocity = vel;
     }
 }
 
 impl OrbitModel for SpiceEarthModel {
-    fn ecliptic_cartesian_coords(&self, et: f64) -> Array3d {
-        let (position, _) = spice::spkpos("EARTH", et, "J2000", "NONE", "SUN");
-        scale_and_pack_spkpos(position)
+    fn ecliptic_cartesian_coords(&self, et: f64) -> (Array3d, Array3d) {
+        spk_j2000_sun_ezr("EARTH", et)
+    }
+
+    fn update_position_velocity(&mut self, et: f64) {
+        let (pos, vel) = self.ecliptic_cartesian_coords(et);
+        self.state.coords = pos;
+        self.state.velocity = vel;
     }
 }
 
 impl OrbitModel for SpiceMoonModel {
-    fn ecliptic_cartesian_coords(&self, et: f64) -> Array3d {
-        let (position, _) = spice::spkpos("MOON", et, "J2000", "NONE", "SUN");
-        scale_and_pack_spkpos(position)
+    fn ecliptic_cartesian_coords(&self, et: f64) -> (Array3d, Array3d) {
+        spk_j2000_sun_ezr("MOON", et)
+    }
+
+    fn update_position_velocity(&mut self, et: f64) {
+        let (pos, vel) = self.ecliptic_cartesian_coords(et);
+        self.state.coords = pos;
+        self.state.velocity = vel;
     }
 }
 
@@ -165,7 +138,7 @@ impl Sun {
         let mut sun_body = Sun {
             model: SpiceSunModel {
                 state: ModelState {
-                    coords: SolarobjCoords::default(),
+                    coords: Array3d::default(),
                     velocity: Array3d::default(),
                 },
             },
@@ -175,11 +148,7 @@ impl Sun {
                 obliquity: 0.0,
             },
         };
-
-        let initial_coords = sun_body.model.ecliptic_cartesian_coords(et);
-        sun_body.model.state.coords.ahead_coords = initial_coords;
-        sun_body.model.state.coords.current_coords = initial_coords;
-        sun_body.model.state.coords.behind_coords = initial_coords;
+        sun_body.model.update_position_velocity(et);
 
         sun_body
     }
@@ -291,7 +260,7 @@ impl Earth {
         let mut earth_body = Self {
             model: SpiceEarthModel {
                 state: ModelState {
-                    coords: SolarobjCoords::default(),
+                    coords: Array3d::default(),
                     velocity: Array3d::default(),
                 },
             },
@@ -303,11 +272,7 @@ impl Earth {
                 obliquity: 23.44,
             },
         };
-
-        let initial_coords = earth_body.model.ecliptic_cartesian_coords(et);
-        earth_body.model.state.coords.ahead_coords = initial_coords;
-        earth_body.model.state.coords.current_coords = initial_coords;
-        earth_body.model.state.coords.behind_coords = initial_coords;
+        earth_body.model.update_position_velocity(et);
 
         earth_body
     }
@@ -318,7 +283,7 @@ impl Moon {
         let mut moon_body = Self {
             model: SpiceMoonModel {
                 state: ModelState {
-                    coords: SolarobjCoords::default(),
+                    coords: Array3d::default(),
                     velocity: Array3d::default(),
                 },
             },
@@ -328,12 +293,7 @@ impl Moon {
                 obliquity: 1.5424,
             },
         };
-
-        // Calculate the location of the moon and convert to heliocentric coords
-        let initial_coords = moon_body.model.ecliptic_cartesian_coords(et);
-        moon_body.model.state.coords.ahead_coords = initial_coords;
-        moon_body.model.state.coords.current_coords = initial_coords;
-        moon_body.model.state.coords.behind_coords = initial_coords;
+        moon_body.model.update_position_velocity(et);
 
         moon_body
     }

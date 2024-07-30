@@ -36,12 +36,6 @@ pub struct SimulationParameters {
     pub sim_time_step: f32,
     #[arg(
         long,
-        help = "value to be used as the update period for solar objects.",
-        default_value_t = 60.0 * 60.0
-    )]
-    pub sim_solar_step: f32,
-    #[arg(
-        long,
         help = "period which to run collision detection.",
         default_value_t = 1.0 * 60.0
     )]
@@ -101,7 +95,6 @@ pub struct RuntimeParameters {
     pub halt_date: DateTime<chrono::Utc>, // Date used as simulation stopping condition.
     pub write_period: f64,
     pub sim_time_step: f32,
-    pub sim_solar_step: f32,
     pub collision_check_period: f32,
     pub check_only_satellite_collisions: bool,
 }
@@ -135,7 +128,6 @@ pub fn collect_simulation_inputs(
         halt_date: ser_objs.halt_date,
         write_period: sim_params.write_period,
         sim_time_step: sim_params.sim_time_step,
-        sim_solar_step: sim_params.sim_solar_step,
         collision_check_period: sim_params.collision_check_period,
         check_only_satellite_collisions: !sim_params.include_debris_collision,
     };
