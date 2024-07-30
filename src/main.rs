@@ -17,6 +17,7 @@ extern crate nrlmsise00c;
 extern crate rayon;
 extern crate serde;
 extern crate serde_json;
+extern crate spice;
 extern crate strum;
 extern crate strum_macros;
 
@@ -43,6 +44,10 @@ fn init_simulation_objects(env: &environment::Environment, sim_objs: &mut Vec<Si
     }
 }
 
+fn furnish_spice() {
+    spice::furnsh("");
+}
+
 fn main() {
     let sim_params = input::SimulationParameters::parse();
 
@@ -50,6 +55,7 @@ fn main() {
     let env = environment::Environment::new(&runtime_params, env_init);
 
     init_simulation_objects(&env, &mut sim_bodies);
+    furnish_spice();
 
     let output_controller = Box::new(output::csv_output::CSVController::new(
         sim_params.output_dir.as_str(),
