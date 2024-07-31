@@ -8,6 +8,7 @@ use crate::{
     types::{l2_norm, Array3d},
 };
 
+use chrono::{DateTime, Utc};
 use satkit::{self, earthgravity::GravityModel};
 
 use super::common::{newton_gravitational_field, newton_gravitational_field_third_body};
@@ -55,19 +56,33 @@ fn calculate_earth_atmospheric_drag_perturbation(
     perturb
 }
 
-fn j2_gravity(sim_obj: &SimobjT, env: &Environment) -> Array3d {
-    let et = spice_ephemeris_time(&env.current_time);
+/// High fidelity Earth gravity model which takes into account the J2
+/// Earth gravity perturbation.
+///
+/// ### Arguments
+/// * 'sim_obj_soi_coords' - Coordinates for a given simulation object expressed in the SOI.
+/// * 'current_time' - Current simulation time object.
+///
+/// ### Return
+///     Earth gravity acceleration for the given coordinates and time.
+///
+fn j2_gravity(sim_obj_soi_coords: &Array3d, current_time: &DateTime<Utc>) -> Array3d {
+    let et = spice_ephemeris_time(current_time);
+    // Rotate simulation object Earth coords in frame J2000 into ITRF93 for computing
+    // zonal spherical harmonics Earth gravity.
     let j2000_irtf_rot_mtx = spice::pxform("J2000", "ITRF93", et);
-    let pos_itrf = spice::mxv(j2000_irtf_rot_mtx, sim_obj.state.coords.to_array());
+    let pos_itrf = spice::mxv(j2000_irtf_rot_mtx, sim_obj_soi_coords.to_array());
     let j2_accel_itrf = satkit::earthgravity::accel(
         &satkit::jplephem::Vec3::new(
             *pos_itrf.get(0).unwrap(),
             *pos_itrf.get(1).unwrap(),
             *pos_itrf.get(2).unwrap(),
         ),
-        16,
+        8,
         GravityModel::JGM3,
     );
+    // Accelerations returned by the spherical harmonics function are in the ITRF frame and
+    // must be converted back into the J2000 frame.
     let irtf_j2000_rot_mtx = spice::pxform("ITRF93", "J2000", et);
     let j2_accel_itrf_array = [
         *j2_accel_itrf.get(0).unwrap(),
@@ -109,7 +124,9 @@ fn calculate_earth_gravity_perturbation(sim_obj: &mut SimobjT, env: &Environment
     } else {
         // Use a lower fidelity but more preformat gravity model for debris.
         match sim_obj.sim_object_type {
-            crate::bodies::sim_object::SimObjectType::Spacecraft => j2_gravity(&sim_obj, env),
+            crate::bodies::sim_object::SimObjectType::Spacecraft => {
+                j2_gravity(&sim_obj.state.coords, &env.current_time)
+            }
             crate::bodies::sim_object::SimObjectType::Debris => {
                 let accel = newton_gravitational_field(
                     &sim_obj.state.coord_helio,
