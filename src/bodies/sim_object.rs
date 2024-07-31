@@ -117,6 +117,32 @@ pub struct SimobjT {
     pub marked_for_deletion_on_step: Option<u64>,
 }
 
+pub struct SimObjHolder {
+    pub sim_objs: Vec<SimobjT>,
+    // max_id_used is private to ensure this value may only be incremented.
+    max_id_used: u32,
+}
+
+impl SimObjHolder {
+    pub fn get_max_id_used(&self) -> u32 {
+        self.max_id_used
+    }
+
+    pub fn update_max_id_used(&mut self, new_id: u32) {
+        // Ensure the max id used is never lowered.
+        assert!(new_id > self.max_id_used);
+
+        self.max_id_used = new_id;
+    }
+
+    pub fn new(sim_objs: Vec<SimobjT>, start_id: u32) -> Self {
+        SimObjHolder {
+            sim_objs,
+            max_id_used: start_id,
+        }
+    }
+}
+
 impl SimobjT {
     pub fn to_output_form(&self, sim_time: f64) -> output::SimulationObjectParameters {
         let coord_helio = &self.state.coord_helio;

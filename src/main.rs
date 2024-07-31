@@ -51,14 +51,15 @@ fn main() {
     // furnish_spice must be called before initializing solar objects.
     furnish_spice();
 
-    let (mut sim_bodies, runtime_params, env_init) = input::collect_simulation_inputs(&sim_params);
+    let (mut sim_obj_holder, runtime_params, env_init) =
+        input::collect_simulation_inputs(&sim_params);
     let env = environment::Environment::new(&runtime_params, env_init);
 
-    init_simulation_objects(&env, &mut sim_bodies);
+    init_simulation_objects(&env, &mut sim_obj_holder.sim_objs);
 
     let output_controller = Box::new(output::csv_output::CSVController::new(
         sim_params.output_dir.as_str(),
     ));
 
-    sim::simulate(sim_bodies, env, output_controller, runtime_params);
+    sim::simulate(sim_obj_holder, env, output_controller, runtime_params);
 }
