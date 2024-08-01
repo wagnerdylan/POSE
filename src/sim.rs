@@ -1,6 +1,6 @@
 use std::mem::swap;
 
-use crate::bodies::sim_object::SimobjT;
+use crate::bodies::sim_object::{SimObjHolder, SimobjT};
 use crate::collision::{
     collision_model, find_body_intersections, find_collision_set, CollisionResult,
 };
@@ -189,27 +189,31 @@ fn write_out_simulation_results(
 /// * 'current_env' - Most recent simulation environment used as a stopping point.
 /// * 'previous_env' - Simulation environment from the last collision check period.
 /// * 'runtime_params' - Parameters collected on simulation init for running the sim.
-/// * 'sim_bodies' - Simulation objects to be propagated.
+/// * 'sim_obj_holder' - Simulation objects to be propagated.
 /// * 'output_controller' - Output object used for emitting simulation results.
 ///
 fn run_collision_check(
     current_env: &Environment,
     previous_env: &mut Environment,
     runtime_params: &input::RuntimeParameters,
-    sim_bodies: &mut Vec<SimobjT>,
+    sim_obj_holder: &mut SimObjHolder,
     output_controller: &mut Box<dyn output::SimulationOutput>,
 ) {
     // Return early if no collision sets exist.
-    if !find_collision_set(sim_bodies, runtime_params.check_only_satellite_collisions) {
+    if !find_collision_set(
+        &mut sim_obj_holder.sim_objs,
+        runtime_params.check_only_satellite_collisions,
+    ) {
         return;
     }
 
-    let max_id = sim_bodies.iter().max_by(|a, b| a.id.cmp(&b.id)).unwrap().id;
+    let max_id = sim_obj_holder.get_max_id_used();
     let mut new_max_id = max_id;
 
     // Swap in the saved state which is from the beginning of the main simulation collision check period.
     // This is done only to the simulation objects which will be checked for intersections.
-    sim_bodies
+    sim_obj_holder
+        .sim_objs
         .chunk_by_mut(|a, b| a.overlap_marker == b.overlap_marker)
         .for_each(|slice| {
             if !slice.first().unwrap().overlap_marker.is_none() {
@@ -220,7 +224,8 @@ fn run_collision_check(
         });
 
     while previous_env.step_count < current_env.step_count {
-        let intersect_gen = sim_bodies
+        let intersect_gen = sim_obj_holder
+            .sim_objs
             .par_chunk_by_mut(|a, b| a.overlap_marker == b.overlap_marker)
             .flat_map(|slice| -> Vec<CollisionResult> {
                 // Skip over non-overlap group.
@@ -256,10 +261,12 @@ fn run_collision_check(
                 new_max_id += 1;
                 a.id = new_max_id
             });
-            sim_bodies.append(&mut new_bodies);
+            sim_obj_holder.sim_objs.append(&mut new_bodies);
             // Sort by overlap marker here so generated bodies are placed within the objects which
             // collided to generated them.
-            sim_bodies.par_sort_unstable_by(|a, b| a.overlap_marker.cmp(&b.overlap_marker));
+            sim_obj_holder
+                .sim_objs
+                .par_sort_unstable_by(|a, b| a.overlap_marker.cmp(&b.overlap_marker));
 
             collision_gen.iter().for_each(|x| {
                 output_controller.write_out_collision_info(x.to_output_form(&new_bodies))
@@ -270,7 +277,7 @@ fn run_collision_check(
         // output so no gaps in information occur. Write output at the simulation
         // step rate.
         if new_max_id != max_id {
-            for sim_body in sim_bodies.iter() {
+            for sim_body in sim_obj_holder.sim_objs.iter() {
                 if sim_body.id > max_id {
                     write_out_simulation_results(
                         slice::from_ref(sim_body),
@@ -286,6 +293,8 @@ fn run_collision_check(
         // End of simulation step calculations, prepare for next simulation step.
         previous_env.advance_simulation_environment(runtime_params);
     }
+
+    sim_obj_holder.update_max_id_used(new_max_id);
 
     // At the end of the function, saved_state and state within each object checked for
     // collision should be the same.
@@ -304,7 +313,7 @@ fn should_run_sim_reverse_logic(
 /// Exit from this loop is conditioned from simulation configuration.
 ///
 /// ### Arguments
-/// * 'sim_bodies' - Simulation objects to be propagated.
+/// * 'sim_obj_holder' - Simulation objects to be propagated.
 /// * 'env' - Initial simulation environment used to perform propagation calculations.
 /// * 'output_controller' - Output object used for emitting simulation results.
 /// * 'runtime_params' - Parameters collected on simulation init for running the sim.
@@ -314,7 +323,7 @@ fn should_run_sim_reverse_logic(
 ///     This function does not return data.
 ///
 pub fn simulate(
-    mut sim_bodies: Vec<SimobjT>,
+    mut sim_obj_holder: SimObjHolder,
     mut env: Environment,
     mut output_controller: Box<dyn output::SimulationOutput>,
     runtime_params: input::RuntimeParameters,
@@ -331,7 +340,7 @@ pub fn simulate(
         // Write out simulation data at the start of the simulation loop as to capture
         // initial simulation state.
         last_write = write_out_simulation_results(
-            &sim_bodies,
+            &sim_obj_holder.sim_objs,
             &env,
             &mut output_controller,
             &runtime_params,
@@ -345,20 +354,23 @@ pub fn simulate(
                 &env,
                 &mut previous_env,
                 &runtime_params,
-                &mut sim_bodies,
+                &mut sim_obj_holder,
                 &mut output_controller,
             );
             // Remove all bodies marked for deletion at this point. The step count contained within
             // the marked_for_deletion_on_step member is irreverent at this point as it is always in the past.
-            sim_bodies.retain(|a| a.marked_for_deletion_on_step.is_none());
+            sim_obj_holder
+                .sim_objs
+                .retain(|a| a.marked_for_deletion_on_step.is_none());
             previous_env = env.clone();
-            sim_bodies
+            sim_obj_holder
+                .sim_objs
                 .iter_mut()
                 .for_each(|a| a.saved_state = a.state.clone());
         }
 
         // Main simulation object propagation.
-        propagate_simulation_objects(&env, &runtime_params, &mut sim_bodies);
+        propagate_simulation_objects(&env, &runtime_params, &mut sim_obj_holder.sim_objs);
 
         // End of simulation step calculations, prepare for next simulation step.
         env.advance_simulation_environment(&runtime_params);

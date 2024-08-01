@@ -4,7 +4,7 @@ use clap::Parser;
 use serde::Deserialize;
 use std::{error::Error, fs::File, io::BufReader, path::Path};
 
-use crate::bodies::sim_object::PerturbationStore;
+use crate::bodies::sim_object::{PerturbationStore, SimObjHolder};
 
 #[derive(Parser, Debug)]
 #[command(
@@ -101,7 +101,7 @@ pub struct RuntimeParameters {
 
 pub fn collect_simulation_inputs(
     sim_params: &SimulationParameters,
-) -> (Vec<SimobjT>, RuntimeParameters, EnvInitData) {
+) -> (SimObjHolder, RuntimeParameters, EnvInitData) {
     let mut sim_bodies: Vec<SimobjT> = Vec::new();
 
     let ser_objs = read_object_from_file(&sim_params.configuration).unwrap();
@@ -117,7 +117,7 @@ pub fn collect_simulation_inputs(
         sim_bodies.push(elem);
     }
 
-    assign_id(&mut sim_bodies);
+    let max_id = assign_id(&mut sim_bodies);
 
     if sim_params.write_perturbations {
         init_perturbation_objects(&mut sim_bodies);
@@ -136,7 +136,11 @@ pub fn collect_simulation_inputs(
         earth_sw: ser_objs.earth_sw,
     };
 
-    (sim_bodies, runtime_params, env_init_data)
+    (
+        SimObjHolder::new(sim_bodies, max_id),
+        runtime_params,
+        env_init_data,
+    )
 }
 
 /// Function responsible for handling opening the file and connecting the
@@ -165,13 +169,18 @@ fn read_object_from_file<P: AsRef<Path>>(path: &P) -> Result<InitData, Box<dyn E
 /// ### Argument
 /// * 'sim_bodies' - A vector containing both debris and spacecraft objects.
 ///
-fn assign_id(sim_bodies: &mut Vec<SimobjT>) {
+/// ### Return
+///     The maximum ID assigned to an object.
+///
+fn assign_id(sim_bodies: &mut Vec<SimobjT>) -> u32 {
     let mut id_inc: u32 = 1;
 
     for body in sim_bodies {
         body.id = id_inc;
         id_inc += 1;
     }
+
+    id_inc
 }
 
 /// Initialize perturbation store object within simulation body to

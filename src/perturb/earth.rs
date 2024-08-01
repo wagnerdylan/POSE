@@ -1,12 +1,15 @@
 use crate::{
     bodies::{
-        common::ecliptic_to_equatorial,
+        common::{ecliptic_to_equatorial, spice_ephemeris_time},
         sim_object::{PerturbationDefinition, SimobjT},
         solar_model::Solarobj,
     },
     environment::Environment,
     types::{l2_norm, Array3d},
 };
+
+use chrono::{DateTime, Utc};
+use satkit::{self, earthgravity::GravityModel};
 
 use super::common::{newton_gravitational_field, newton_gravitational_field_third_body};
 
@@ -53,6 +56,48 @@ fn calculate_earth_atmospheric_drag_perturbation(
     perturb
 }
 
+/// High fidelity Earth gravity model which takes into account the J2
+/// Earth gravity perturbation.
+///
+/// ### Arguments
+/// * 'sim_obj_soi_coords' - Coordinates for a given simulation object expressed in the SOI.
+/// * 'current_time' - Current simulation time object.
+///
+/// ### Return
+///     Earth gravity acceleration for the given coordinates and time.
+///
+fn j2_gravity(sim_obj_soi_coords: &Array3d, current_time: &DateTime<Utc>) -> Array3d {
+    let et = spice_ephemeris_time(current_time);
+    // Rotate simulation object Earth coords in frame J2000 into ITRF93 for computing
+    // zonal spherical harmonics Earth gravity.
+    let j2000_irtf_rot_mtx = spice::pxform("J2000", "ITRF93", et);
+    let pos_itrf = spice::mxv(j2000_irtf_rot_mtx, sim_obj_soi_coords.to_array());
+    let j2_accel_itrf = satkit::earthgravity::accel(
+        &satkit::jplephem::Vec3::new(
+            *pos_itrf.get(0).unwrap(),
+            *pos_itrf.get(1).unwrap(),
+            *pos_itrf.get(2).unwrap(),
+        ),
+        8,
+        GravityModel::JGM3,
+    );
+    // Accelerations returned by the spherical harmonics function are in the ITRF frame and
+    // must be converted back into the J2000 frame.
+    let irtf_j2000_rot_mtx = spice::pxform("ITRF93", "J2000", et);
+    let j2_accel_itrf_array = [
+        *j2_accel_itrf.get(0).unwrap(),
+        *j2_accel_itrf.get(1).unwrap(),
+        *j2_accel_itrf.get(2).unwrap(),
+    ];
+    let accel_j2000 = spice::mxv(irtf_j2000_rot_mtx, j2_accel_itrf_array);
+
+    Array3d {
+        x: *accel_j2000.get(0).unwrap(),
+        y: *accel_j2000.get(1).unwrap(),
+        z: *accel_j2000.get(2).unwrap(),
+    }
+}
+
 fn calculate_earth_gravity_perturbation(sim_obj: &mut SimobjT, env: &Environment) -> Array3d {
     let (r_0, r_tb, ob_0) = match sim_obj.state.soi {
         Solarobj::Sun => (
@@ -68,18 +113,30 @@ fn calculate_earth_gravity_perturbation(sim_obj: &mut SimobjT, env: &Environment
         ),
     };
 
-    let accel_ecliptic = if r_tb.is_some() {
-        newton_gravitational_field_third_body(
+    let perturb = if r_tb.is_some() {
+        let accel = newton_gravitational_field_third_body(
             &sim_obj.state.coord_helio,
             &r_0,
             &r_tb.unwrap(),
             env.earth.attr.mass,
-        )
+        );
+        ecliptic_to_equatorial(&accel, ob_0)
     } else {
-        newton_gravitational_field(&sim_obj.state.coord_helio, &r_0, env.earth.attr.mass)
+        // Use a lower fidelity but more preformat gravity model for debris.
+        match sim_obj.sim_object_type {
+            crate::bodies::sim_object::SimObjectType::Spacecraft => {
+                j2_gravity(&sim_obj.state.coords, &env.current_time)
+            }
+            crate::bodies::sim_object::SimObjectType::Debris => {
+                let accel = newton_gravitational_field(
+                    &sim_obj.state.coord_helio,
+                    &r_0,
+                    env.earth.attr.mass,
+                );
+                ecliptic_to_equatorial(&accel, ob_0)
+            }
+        }
     };
-
-    let perturb = ecliptic_to_equatorial(&accel_ecliptic, ob_0);
 
     if let Some(perturb_store) = &mut sim_obj.perturb_store {
         perturb_store.earth_gravity = Some(PerturbationDefinition {

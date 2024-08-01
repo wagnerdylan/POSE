@@ -12,6 +12,7 @@ use super::common::ct2lst;
 pub fn furnish_spice() {
     spice::furnsh("data/spice/spk/planets/de440s.bsp");
     spice::furnsh("data/spice/lsk/latest_leapseconds.tls");
+    spice::furnsh("data/spice/pck/earth_200101_990825_predict.bpc");
 }
 
 #[derive(Display, Clone, Deserialize, Serialize, Default, PartialEq)]

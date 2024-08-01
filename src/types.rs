@@ -19,6 +19,10 @@ impl Array3d {
     pub fn dot(&self, other: &Array3d) -> f64 {
         (self.x * other.x) + (self.y * other.y) + (self.z * other.z)
     }
+
+    pub fn to_array(&self) -> [f64; 3] {
+        [self.x, self.y, self.z]
+    }
 }
 
 pub fn l2_norm(x: &Array3d) -> f64 {
