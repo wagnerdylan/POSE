@@ -130,7 +130,12 @@ impl SimObjHolder {
 
     pub fn update_max_id_used(&mut self, new_id: u32) {
         // Ensure the max id used is never lowered.
-        assert!(new_id > self.max_id_used);
+        assert!(
+            new_id >= self.max_id_used,
+            "new max id assigned ({}) is lower than the current max id ({}).",
+            new_id,
+            self.max_id_used
+        );
 
         self.max_id_used = new_id;
     }
