@@ -3,6 +3,7 @@ import json
 import numpy
 import random
 import math
+import pandas
 
 from typing import List, Dict
 
@@ -16,12 +17,16 @@ parser.add_argument(
     "num_debris",
     help="Number of space debris objects to inject into simulation configuration.",
 )
-parser.add_argument(
+subparsers = parser.add_subparsers(dest='subparser', help="Debris generation modes.")
+pure_random_group = subparsers.add_parser("random", description="Pure random debris generation in both coordinate and velocity.")
+pure_random_group.add_argument(
     "middle_alt",
     help="Middle altitude to use for the normal distribution of space debris objects.",
 )
 
-args = parser.parse_args()
+sim_derived_group = subparsers.add_parser("derived", description="Random debris generation following a trajectory from POSE output.")
+sim_derived_group.add_argument("pose_object_file", help="Filepath to a pose object file containing the trajectory for a given object.")
+sim_derived_group.add_argument("object_id", help="Object ID of the desired trajectory.")
 
 G = 6.674e-11
 
@@ -94,9 +99,7 @@ def sphere_parameters(num: int, radius_cm: float):
     return name, drag_area, drag_coeff, mass
 
 
-def random_debris(num: int, alt: float) -> Dict:
-    c_x, c_y, c_z = rand_dim(3, alt)
-    v_x, v_y, v_z = tangent_velocity(c_x, c_y, c_z, alt)
+def create_debris(num: int, c_x: float, c_y: float, c_z: float, v_x: float, v_y: float, v_z: float) -> Dict:
     radius_cm = random.uniform(0.5, 2)
     name, drag_area, drag_coeff, mass = sphere_parameters(num, radius_cm)
     obj = {
@@ -118,25 +121,72 @@ def random_debris(num: int, alt: float) -> Dict:
 
     return obj
 
+def create_random_debris(num: int, alt: float):
+    c_x, c_y, c_z = rand_dim(3, alt)
+    v_x, v_y, v_z = tangent_velocity(c_x, c_y, c_z, alt)
+
+    return create_debris(num, c_x, c_y, c_z, v_x, v_y, v_z)
 
 def generate_random_debris(num_debris: int, middle_alt: float) -> List[Dict]:
+    assert(middle_alt > 0.0)
+
     debris = list()
     sc_alt_dist = numpy.random.normal(
         EARTH_EQ_RADIUS + middle_alt, DIST_ALT_SD, num_debris
     )
     for num in range(num_debris):
-        debris.append(random_debris(num, sc_alt_dist[num]))
+        debris.append(create_random_debris(num, sc_alt_dist[num]))
 
     return debris
 
+def generate_derived_debris(num: int, object_file: str, object_id: int) -> List[Dict]:
+    assert(object_id > 0)
+
+    object_df = pandas.read_csv(object_file)
+    # Skip over the first part of the object trajectory to prevent collisions on simulation init.
+    object_df = object_df[object_df["id"] == object_id & object_df["sim_time"] > 60.0]
+    object_trajectory = object_df.to_dict('records')
+    
+    if len(object_trajectory) < num:
+        skip_every_nth = len(object_trajectory) // num
+        object_trajectory = object_trajectory[0::skip_every_nth]
+
+    num_debris_per_point = num // len(object_trajectory)
+    debris = list()
+
+    debris_created = 0
+    for point in object_trajectory:
+        for i in range(num_debris_per_point):
+            c_x, c_y, c_z = point["coord_x"], point["coord_y"], point["coord_z"]
+            v_x, v_y, v_z = point["velocity_x"], point["velocity_y"], point["velocity_z"]
+            debris.append(create_debris(debris_created, c_x, c_y, c_z, v_x, v_y, v_z))
+
+            debris_created += 1
+
+    return debris
+
+def pure_random_generation(args) -> Dict:
+    return generate_random_debris(
+        int(args.num_debris), float(args.middle_alt)
+    )
+
+def sim_derived_generation(args) -> Dict:
+    return generate_derived_debris(int(args.num_debris), args.pose_object_file, int(args.object_id))
+
+random.seed(1)
+args = parser.parse_args()
 
 with open(args.sim_config, "r") as fd:
     sim_config = json.load(fd)
 
-random.seed(1)
-sim_config["debris"] = generate_random_debris(
-    int(args.num_debris), int(args.middle_alt)
-)
+debris = None
+if args.subparser == "random":
+    debris = pure_random_generation(args)
+elif args.subparser == "derived":
+    debris = sim_derived_generation(args)
+
+assert(debris is not None)
+sim_config["debris"] = debris
 
 with open(args.sim_config, "w+") as sim_fp:
     json.dump(sim_config, sim_fp, indent=2)
