@@ -146,22 +146,22 @@ def generate_derived_debris(num: int, object_file: str, object_id: int) -> List[
     # Skip over the first part of the object trajectory to prevent collisions on simulation init.
     object_df = object_df[object_df["id"] == object_id & object_df["sim_time"] > 60.0]
     object_trajectory = object_df.to_dict('records')
-    
-    if len(object_trajectory) < num:
-        skip_every_nth = len(object_trajectory) // num
-        object_trajectory = object_trajectory[0::skip_every_nth]
 
-    num_debris_per_point = num // len(object_trajectory)
+    accumulation_factor = num / len(object_trajectory)
     debris = list()
 
     debris_created = 0
+    accumulation_count = 0.0
     for point in object_trajectory:
-        for i in range(num_debris_per_point):
+        accumulation_count += accumulation_factor
+        num_create = accumulation_count // 1
+        for _ in range(num_create):
             c_x, c_y, c_z = point["coord_x"], point["coord_y"], point["coord_z"]
             v_x, v_y, v_z = point["velocity_x"], point["velocity_y"], point["velocity_z"]
             debris.append(create_debris(debris_created, c_x, c_y, c_z, v_x, v_y, v_z))
 
             debris_created += 1
+            accumulation_count -= 1
 
     return debris
 
