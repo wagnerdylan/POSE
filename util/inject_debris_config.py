@@ -121,11 +121,13 @@ def create_debris(num: int, c_x: float, c_y: float, c_z: float, v_x: float, v_y:
 
     return obj
 
+
 def create_random_debris(num: int, alt: float):
     c_x, c_y, c_z = rand_dim(3, alt)
     v_x, v_y, v_z = tangent_velocity(c_x, c_y, c_z, alt)
 
     return create_debris(num, c_x, c_y, c_z, v_x, v_y, v_z)
+
 
 def generate_random_debris(num_debris: int, middle_alt: float) -> List[Dict]:
     assert(middle_alt > 0.0)
@@ -139,39 +141,71 @@ def generate_random_debris(num_debris: int, middle_alt: float) -> List[Dict]:
 
     return debris
 
+
+def rotate_velocity_about_k(c_x, c_y, c_z, v_x, v_y, v_z, theta):
+    # Rotated element about k, _v is unused as this term will be calculated using the provided velocity vector.
+    k, _v = calc_perpendicular_vectors(c_x, c_y, c_z)
+    v_array = numpy.asarray([v_x, v_y, v_z])
+    l2_v = numpy.sqrt(numpy.dot(v_array, v_array))
+    v = v_array / l2_v
+
+    v_rot = rotate_vector_about_k(v, k, theta)
+    return v_rot[0], v_rot[1], v_rot[2]
+
+
+def create_debris_from_trajectory(num: int, object_trajectory) -> List[Dict]:
+    accumulation_factor = num / len(object_trajectory)
+    debris = list()
+    debris_created = 0
+    accumulation_count = 0.0
+    
+    for point in object_trajectory:
+        accumulation_count += accumulation_factor
+        num_create = int(accumulation_count // 1)
+        for i in range(num_create):
+            c_x, c_y, c_z = point["x_coord"], point["y_coord"], point["z_coord"]
+            v_x, v_y, v_z = point["x_velocity"], point["y_velocity"], point["z_velocity"]
+            
+            theta = math.radians(0)
+            # 10% chance of a debris object moving in an opposite direction from the defined trajectory.
+            if random.random() < 0.1:
+                theta = math.radians(180)
+            # If more than one object is generated on this point, ensure the trajectory is slightly different.
+            elif i > 0:
+                theta = math.radians(random.randint(-5,5))
+                if theta == 0:
+                    theta = 1
+            
+            vr_x, vr_y, vr_z = rotate_velocity_about_k(c_x, c_y, c_z, v_x, v_y, v_z, theta)
+            debris.append(create_debris(debris_created, c_x, c_y, c_z, vr_x, vr_y, vr_z))
+
+            debris_created += 1
+            accumulation_count -= 1
+
+    return debris    
+
+
 def generate_derived_debris(num: int, object_file: str, object_id: int) -> List[Dict]:
     assert(object_id > 0)
 
     object_df = pandas.read_csv(object_file)
     # Skip over the first part of the object trajectory to prevent collisions on simulation init.
-    object_df = object_df[object_df["id"] == object_id & object_df["sim_time"] > 60.0]
+    object_df = object_df[object_df["id"] == object_id]
+    object_df = object_df[object_df["sim_time"] > 20.0]
     object_trajectory = object_df.to_dict('records')
 
-    accumulation_factor = num / len(object_trajectory)
-    debris = list()
+    return create_debris_from_trajectory(num, object_trajectory)
 
-    debris_created = 0
-    accumulation_count = 0.0
-    for point in object_trajectory:
-        accumulation_count += accumulation_factor
-        num_create = accumulation_count // 1
-        for _ in range(num_create):
-            c_x, c_y, c_z = point["coord_x"], point["coord_y"], point["coord_z"]
-            v_x, v_y, v_z = point["velocity_x"], point["velocity_y"], point["velocity_z"]
-            debris.append(create_debris(debris_created, c_x, c_y, c_z, v_x, v_y, v_z))
-
-            debris_created += 1
-            accumulation_count -= 1
-
-    return debris
 
 def pure_random_generation(args) -> Dict:
     return generate_random_debris(
         int(args.num_debris), float(args.middle_alt)
     )
 
+
 def sim_derived_generation(args) -> Dict:
     return generate_derived_debris(int(args.num_debris), args.pose_object_file, int(args.object_id))
+
 
 random.seed(1)
 args = parser.parse_args()
