@@ -119,7 +119,7 @@ where
             };
             sim_bodies.get_mut(sim_body_i - 1).unwrap().overlap_marker = Some(marker_num);
             sim_bodies.get_mut(sim_body_i).unwrap().overlap_marker = Some(marker_num);
-            group_range = Some((back_range.0, front_range.1))
+            group_range = Some((back_range.0, back_range.1.max(front_range.1)));
         } else {
             group_range = None;
         }
